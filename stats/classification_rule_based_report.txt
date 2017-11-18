@@ -1,0 +1,187 @@
+=======================================================
+
+Classification using feature type "1".
+
+=======================================================
+
+Loading data...
+Processing features...
+Evaluating SVM models...
+
+ === SVC MODEL ===
+Accuracy: 0.611442516269
+Precision: 0.594242949158
+Recall: 0.611442516269
+F_score: 0.596690185608
+             precision    recall  f1-score   support
+
+          0       0.66      0.77      0.71      2280
+          1       0.49      0.36      0.41      1408
+
+avg / total       0.59      0.61      0.60      3688
+
+
+ === Linear SVC MODEL ===
+Accuracy: 0.588123644252
+Precision: 0.518725004849
+Recall: 0.588123644252
+F_score: 0.510737479437
+             precision    recall  f1-score   support
+
+          0       0.62      0.89      0.73      2280
+          1       0.36      0.10      0.16      1408
+
+avg / total       0.52      0.59      0.51      3688
+
+
+Evaluating Linear Regression model...
+
+ === Linear Regression MODEL ===
+Training for reg = 0.000031
+Training for reg = 0.000977
+Training for reg = 0.031250
+Training for reg = 1.000000
+Training for reg = 1.000000
+Training for reg = 32.000000
+Training for reg = 1024.000000
+Training for reg = 32768.000000
+Reg			Acc		P		R		F1
+3.05E-05	0.588	0.519	0.588	0.511
+9.77E-04	0.588	0.519	0.588	0.511
+3.12E-02	0.588	0.519	0.588	0.511
+1.00E+00	0.588	0.519	0.588	0.511
+1.00E+00	0.588	0.519	0.588	0.511
+3.20E+01	0.588	0.519	0.588	0.511
+1.02E+03	0.588	0.506	0.588	0.500
+3.28E+04	0.618	0.382	0.618	0.472
+Best regularization value: 3.05E-05
+Accuracy (%) 58.812
+Precision : 0.519  Recall : 0.588  F_score : 0.511
+
+Completion time: 264.800 s = 4.413 min
+
+=======================================================
+
+Classification using feature type "2".
+
+=======================================================
+
+Loading data...
+Processing features...
+Evaluating SVM models...
+
+ === SVC MODEL ===
+Accuracy: 0.548535791757
+Precision: 0.53363303395
+Recall: 0.548535791757
+F_score: 0.53894438836
+             precision    recall  f1-score   support
+
+          0       0.62      0.69      0.65      2280
+          1       0.39      0.32      0.35      1408
+
+avg / total       0.53      0.55      0.54      3688
+
+
+ === Linear SVC MODEL ===
+Accuracy: 0.580531453362
+Precision: 0.50276294143
+Recall: 0.580531453362
+F_score: 0.501718815463
+             precision    recall  f1-score   support
+
+          0       0.61      0.88      0.72      2280
+          1       0.33      0.09      0.14      1408
+
+avg / total       0.50      0.58      0.50      3688
+
+
+Evaluating Linear Regression model...
+
+ === Linear Regression MODEL ===
+Training for reg = 0.000031
+Training for reg = 0.000977
+Training for reg = 0.031250
+Training for reg = 1.000000
+Training for reg = 1.000000
+Training for reg = 32.000000
+Training for reg = 1024.000000
+Training for reg = 32768.000000
+Reg			Acc		P		R		F1
+3.05E-05	0.581	0.503	0.581	0.502
+9.77E-04	0.581	0.503	0.581	0.502
+3.12E-02	0.581	0.503	0.581	0.502
+1.00E+00	0.581	0.503	0.581	0.502
+1.00E+00	0.581	0.503	0.581	0.502
+3.20E+01	0.581	0.503	0.581	0.502
+1.02E+03	0.597	0.506	0.597	0.494
+3.28E+04	0.618	0.382	0.618	0.472
+Best regularization value: 3.05E-05
+Accuracy (%) 58.053
+Precision : 0.503  Recall : 0.581  F_score : 0.502
+
+Completion time: 249.591 s = 4.160 min
+
+=======================================================
+
+
+Classsification using feature type "3".
+
+
+=======================================================
+
+Loading data...
+Processing features...
+Evaluating SVM models...
+
+ === SVC MODEL ===
+Accuracy: 0.61795010846
+Precision: 0.602229543247
+Recall: 0.61795010846
+F_score: 0.604507022055
+             precision    recall  f1-score   support
+
+          0       0.67      0.77      0.71      2280
+          1       0.50      0.38      0.43      1408
+
+avg / total       0.60      0.62      0.60      3688
+
+
+ === Linear SVC MODEL ===
+Accuracy: 0.586767895879
+Precision: 0.544680689401
+Recall: 0.586767895879
+F_score: 0.542573114148
+             precision    recall  f1-score   support
+
+          0       0.63      0.83      0.71      2280
+          1       0.41      0.20      0.27      1408
+
+avg / total       0.54      0.59      0.54      3688
+
+
+Evaluating Linear Regression model...
+
+ === Linear Regression MODEL ===
+Training for reg = 0.000031
+Training for reg = 0.000977
+Training for reg = 0.031250
+Training for reg = 1.000000
+Training for reg = 1.000000
+Training for reg = 32.000000
+Training for reg = 1024.000000
+Training for reg = 32768.000000
+Reg			Acc		P		R		F1
+3.05E-05	0.586	0.544	0.586	0.543
+9.77E-04	0.586	0.544	0.586	0.543
+3.12E-02	0.586	0.544	0.586	0.543
+1.00E+00	0.586	0.544	0.586	0.543
+1.00E+00	0.586	0.544	0.586	0.543
+3.20E+01	0.587	0.545	0.587	0.543
+1.02E+03	0.597	0.546	0.597	0.533
+3.28E+04	0.618	0.573	0.618	0.474
+Best regularization value: 3.20E+01
+Accuracy (%) 58.704
+Precision : 0.545  Recall : 0.587  F_score : 0.543
+
+Completion time: 278.079 s = 4.635 min

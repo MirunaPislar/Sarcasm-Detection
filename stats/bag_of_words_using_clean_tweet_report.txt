@@ -1,0 +1,483 @@
+=======================================================
+
+                      Mode :  binary
+
+=======================================================
+
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+The shape of the train set is:  (51189, 3)
+Columns:  ['Set' 'Label' 'Text']
+Building vocabulary...
+Vocabulary saved to file "/home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt"
+The top 50 most common words:  [('.', 44626), ('to', 19168), ('I', 18792), ('the', 17662), (',', 16211), ('a', 15131), ('you', 12704), ('and', 11443), ('!', 10715), ('is', 8753), ('my', 8582), ('of', 8393), ('in', 8246), ('for', 7318), ('"', 6879), ('?', 5874), (':', 5817), ('it', 5577), ('me', 5570), ('on', 5223), ('that', 5176), ('so', 4591), ('love', 4568), ('be', 4354), ('have', 4151), ('with', 4114), ('your', 4067), ('like', 3869), ("I'm", 3843), ('this', 3713), ('-', 3666), ('at', 3506), ('#not', 3493), ('just', 3451), ('are', 3445), ('i', 3347), ('not', 3145), ('but', 3130), ('when', 3108), ('up', 3095), ('was', 2805), ('all', 2730), ('day', 2523), ('get', 2495), ('&', 2416), ("don't", 2406), ('do', 2372), ('out', 2276), ('about', 2244), ('people', 2180)]
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+The shape of the train set is:  (3688, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+
+=== Linear SVC MODEL ===
+Fitting Linear SVC...
+SVC evaluation...
+Accuracy: 0.804229934924
+Precision: 0.820369070758
+Recall: 0.804229934924
+F_score: 0.806782952229
+             precision    recall  f1-score   support
+
+          0       0.89      0.77      0.83      2280
+          1       0.70      0.85      0.77      1408
+
+avg / total       0.82      0.80      0.81      3688
+
+BoW with SVC completion time: 15.873 s = 0.265 min
+
+=== Feed-forward NN model ===
+List of architectural choices for this run:
+no. of epochs = 10, batch size = 32, hidden layer activation = relu, output layer activation = sigmoid.
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #
+=================================================================
+dense_1 (Dense)              (None, 50)                2631150
+_________________________________________________________________
+dense_2 (Dense)              (None, 1)                 51
+=================================================================
+Total params: 2,631,201
+Trainable params: 2,631,201
+Non-trainable params: 0
+_________________________________________________________________
+Fitting feed-forward NN model...
+Epoch 1/10
+2017-11-18 16:15:27.789115: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.1 instructions, but these are available on your machine and could speed up CPU computations.
+2017-11-18 16:15:27.873680: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use SSE4.2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-11-18 16:15:27.873705: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX instructions, but these are available on your machine and could speed up CPU computations.
+2017-11-18 16:15:27.873715: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use AVX2 instructions, but these are available on your machine and could speed up CPU computations.
+2017-11-18 16:15:27.873725: W tensorflow/core/platform/cpu_feature_guard.cc:45] The TensorFlow library wasn't compiled to use FMA instructions, but these are available on your machine and could speed up CPU computations.
+98s - loss: 0.4771 - acc: 0.7750 - f1_score: nan
+Epoch 2/10
+91s - loss: 0.3041 - acc: 0.8676 - f1_score: 0.8577
+Epoch 3/10
+88s - loss: 0.2067 - acc: 0.9159 - f1_score: 0.9095
+Epoch 4/10
+88s - loss: 0.1360 - acc: 0.9487 - f1_score: 0.9448
+Epoch 5/10
+88s - loss: 0.0888 - acc: 0.9698 - f1_score: 0.9676
+Epoch 6/10
+88s - loss: 0.0577 - acc: 0.9816 - f1_score: 0.9800
+Epoch 7/10
+88s - loss: 0.0392 - acc: 0.9881 - f1_score: 0.9873
+Epoch 8/10
+88s - loss: 0.0297 - acc: 0.9918 - f1_score: 0.9912
+Epoch 9/10
+88s - loss: 0.0232 - acc: 0.9936 - f1_score: 0.9931
+Epoch 10/10
+89s - loss: 0.0196 - acc: 0.9946 - f1_score: 0.9942
+NN evaluation...
+  32/3688 [..............................] - ETA: 3s
+ 160/3688 [>.............................] - ETA: 2s
+ 288/3688 [=>............................] - ETA: 1s
+ 416/3688 [==>...........................] - ETA: 1s
+ 512/3688 [===>..........................] - ETA: 1s
+ 640/3688 [====>.........................] - ETA: 1s
+ 768/3688 [=====>........................] - ETA: 1s
+ 896/3688 [======>.......................] - ETA: 1s
+ 992/3688 [=======>......................] - ETA: 1s
+1120/3688 [========>.....................] - ETA: 1s
+1248/3688 [=========>....................] - ETA: 1s
+1376/3688 [==========>...................] - ETA: 1s
+1504/3688 [===========>..................] - ETA: 1s
+1632/3688 [============>.................] - ETA: 1s
+1760/3688 [=============>................] - ETA: 0s
+1888/3688 [==============>...............] - ETA: 0s
+2016/3688 [===============>..............] - ETA: 0s
+2144/3688 [================>.............] - ETA: 0s
+2272/3688 [=================>............] - ETA: 0s
+2400/3688 [==================>...........] - ETA: 0s
+2496/3688 [===================>..........] - ETA: 0s
+2624/3688 [====================>.........] - ETA: 0s
+2752/3688 [=====================>........] - ETA: 0s
+2880/3688 [======================>.......] - ETA: 0s
+3008/3688 [=======================>......] - ETA: 0s
+3136/3688 [========================>.....] - ETA: 0s
+3264/3688 [=========================>....] - ETA: 0s
+3392/3688 [==========================>...] - ETA: 0s
+3520/3688 [===========================>..] - ETA: 0s
+3648/3688 [============================>.] - ETA: 0sAccuracy: 0.826464208243
+Precision: 0.842022674891
+Recall: 0.826464208243
+F_score: 0.828714242303
+             precision    recall  f1-score   support
+
+          0       0.91      0.79      0.85      2280
+          1       0.72      0.88      0.79      1408
+
+avg / total       0.84      0.83      0.83      3688
+
+No of examples predicted correctly:  3048
+Accuracy, mine = 82.646, keras = 82.646.
+Saved model with json name /home/miruna/PycharmProjects/sarcasm_detection_v1/models/json_bow_nn_2_binary_10_basic_18nov.json, and weights /home/miruna/PycharmProjects/sarcasm_detection_v1/models/h5_bow_2_nn_binary_10_basic_18nov.json
+Bow with NN completion time: 1380.806 s = 23.013 min
+BoW model analysis completion time: 1437.717 s = 23.962 min
+
+=======================================================
+
+                      Mode :  count
+
+=======================================================
+
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+The shape of the train set is:  (51189, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+The shape of the train set is:  (3688, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+
+=== Linear SVC MODEL ===
+Fitting Linear SVC...
+SVC evaluation...
+Accuracy: 0.808026030369
+Precision: 0.822571935883
+Recall: 0.808026030369
+F_score: 0.810452806323
+             precision    recall  f1-score   support
+
+          0       0.89      0.78      0.83      2280
+          1       0.71      0.85      0.77      1408
+
+avg / total       0.82      0.81      0.81      3688
+
+BoW with SVC completion time: 16.454 s = 0.274 min
+
+=== Feed-forward NN model ===
+List of architectural choices for this run:
+no. of epochs = 10, batch size = 32, hidden layer activation = relu, output layer activation = sigmoid.
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #
+=================================================================
+dense_3 (Dense)              (None, 50)                2631150
+_________________________________________________________________
+dense_4 (Dense)              (None, 1)                 51
+=================================================================
+Total params: 2,631,201
+Trainable params: 2,631,201
+Non-trainable params: 0
+_________________________________________________________________
+Fitting feed-forward NN model...
+Epoch 1/10
+87s - loss: 0.4781 - acc: 0.7742 - f1_score: 0.7525
+Epoch 2/10
+90s - loss: 0.3019 - acc: 0.8701 - f1_score: 0.8611
+Epoch 3/10
+90s - loss: 0.1984 - acc: 0.9202 - f1_score: 0.9142
+Epoch 4/10
+88s - loss: 0.1278 - acc: 0.9529 - f1_score: 0.9495
+Epoch 5/10
+88s - loss: 0.0811 - acc: 0.9730 - f1_score: 0.9709
+Epoch 6/10
+93s - loss: 0.0531 - acc: 0.9837 - f1_score: 0.9824
+Epoch 7/10
+111s - loss: 0.0365 - acc: 0.9896 - f1_score: 0.9887
+Epoch 8/10
+97s - loss: 0.0281 - acc: 0.9925 - f1_score: 0.9918
+Epoch 9/10
+97s - loss: 0.0213 - acc: 0.9941 - f1_score: 0.9936
+Epoch 10/10
+100s - loss: 0.0189 - acc: 0.9950 - f1_score: 0.9945
+NN evaluation...
+  32/3688 [..............................] - ETA: 3s
+ 160/3688 [>.............................] - ETA: 2s
+ 288/3688 [=>............................] - ETA: 1s
+ 416/3688 [==>...........................] - ETA: 1s
+ 544/3688 [===>..........................] - ETA: 1s
+ 672/3688 [====>.........................] - ETA: 1s
+ 800/3688 [=====>........................] - ETA: 1s
+ 928/3688 [======>.......................] - ETA: 1s
+1056/3688 [=======>......................] - ETA: 1s
+1184/3688 [========>.....................] - ETA: 1s
+1312/3688 [=========>....................] - ETA: 1s
+1440/3688 [==========>...................] - ETA: 1s
+1568/3688 [===========>..................] - ETA: 1s
+1696/3688 [============>.................] - ETA: 0s
+1824/3688 [=============>................] - ETA: 0s
+1920/3688 [==============>...............] - ETA: 0s
+2016/3688 [===============>..............] - ETA: 0s
+2112/3688 [================>.............] - ETA: 0s
+2240/3688 [=================>............] - ETA: 0s
+2336/3688 [==================>...........] - ETA: 0s
+2464/3688 [===================>..........] - ETA: 0s
+2592/3688 [====================>.........] - ETA: 0s
+2720/3688 [=====================>........] - ETA: 0s
+2816/3688 [=====================>........] - ETA: 0s
+2912/3688 [======================>.......] - ETA: 0s
+3040/3688 [=======================>......] - ETA: 0s
+3168/3688 [========================>.....] - ETA: 0s
+3264/3688 [=========================>....] - ETA: 0s
+3392/3688 [==========================>...] - ETA: 0s
+3520/3688 [===========================>..] - ETA: 0s
+3616/3688 [============================>.] - ETA: 0sAccuracy: 0.825379609544
+Precision: 0.840635047092
+Recall: 0.825379609544
+F_score: 0.827630171939
+             precision    recall  f1-score   support
+
+          0       0.91      0.79      0.85      2280
+          1       0.72      0.88      0.79      1408
+
+avg / total       0.84      0.83      0.83      3688
+
+No of examples predicted correctly:  3044
+Accuracy, mine = 82.538, keras = 82.538.
+Saved model with json name /home/miruna/PycharmProjects/sarcasm_detection_v1/models/json_bow_nn_2_count_10_basic_18nov.json, and weights /home/miruna/PycharmProjects/sarcasm_detection_v1/models/h5_bow_2_nn_count_10_basic_18nov.json
+Bow with NN completion time: 961.949 s = 16.032 min
+BoW model analysis completion time: 991.648 s = 16.527 min
+
+
+=======================================================
+
+                      Mode :  tfidf
+
+=======================================================
+
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+The shape of the train set is:  (51189, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+The shape of the train set is:  (3688, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+
+=== Linear SVC MODEL ===
+Fitting Linear SVC...
+SVC evaluation...
+Accuracy: 0.806670281996
+Precision: 0.818145296007
+Recall: 0.806670281996
+F_score: 0.808907941544
+             precision    recall  f1-score   support
+
+          0       0.88      0.79      0.83      2280
+          1       0.71      0.83      0.77      1408
+
+avg / total       0.82      0.81      0.81      3688
+
+BoW with SVC completion time: 14.501 s = 0.242 min
+
+=== Feed-forward NN model ===
+List of architectural choices for this run:
+no. of epochs = 10, batch size = 32, hidden layer activation = relu, output layer activation = sigmoid.
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #
+=================================================================
+dense_5 (Dense)              (None, 50)                2631150
+_________________________________________________________________
+dense_6 (Dense)              (None, 1)                 51
+=================================================================
+Total params: 2,631,201
+Trainable params: 2,631,201
+Non-trainable params: 0
+_________________________________________________________________
+Fitting feed-forward NN model...
+Epoch 1/10
+87s - loss: 0.4754 - acc: 0.7746 - f1_score: 0.7603
+Epoch 2/10
+87s - loss: 0.2355 - acc: 0.9000 - f1_score: 0.8923
+Epoch 3/10
+88s - loss: 0.1159 - acc: 0.9545 - f1_score: 0.9511
+Epoch 4/10
+92s - loss: 0.0585 - acc: 0.9800 - f1_score: 0.9784
+Epoch 5/10
+107s - loss: 0.0352 - acc: 0.9889 - f1_score: 0.9879
+Epoch 6/10
+108s - loss: 0.0260 - acc: 0.9927 - f1_score: 0.9921
+Epoch 7/10
+101s - loss: 0.0202 - acc: 0.9941 - f1_score: 0.9935
+Epoch 8/10
+104s - loss: 0.0170 - acc: 0.9952 - f1_score: 0.9949
+Epoch 9/10
+104s - loss: 0.0154 - acc: 0.9956 - f1_score: 0.9954
+Epoch 10/10
+103s - loss: 0.0141 - acc: 0.9958 - f1_score: 0.9954
+NN evaluation...
+  32/3688 [..............................] - ETA: 5s
+ 128/3688 [>.............................] - ETA: 2s
+ 224/3688 [>.............................] - ETA: 2s
+ 320/3688 [=>............................] - ETA: 2s
+ 416/3688 [==>...........................] - ETA: 2s
+ 512/3688 [===>..........................] - ETA: 2s
+ 640/3688 [====>.........................] - ETA: 1s
+ 736/3688 [====>.........................] - ETA: 1s
+ 832/3688 [=====>........................] - ETA: 1s
+ 928/3688 [======>.......................] - ETA: 1s
+1024/3688 [=======>......................] - ETA: 1s
+1120/3688 [========>.....................] - ETA: 1s
+1216/3688 [========>.....................] - ETA: 1s
+1312/3688 [=========>....................] - ETA: 1s
+1408/3688 [==========>...................] - ETA: 1s
+1504/3688 [===========>..................] - ETA: 1s
+1600/3688 [============>.................] - ETA: 1s
+1696/3688 [============>.................] - ETA: 1s
+1792/3688 [=============>................] - ETA: 1s
+1888/3688 [==============>...............] - ETA: 1s
+1984/3688 [===============>..............] - ETA: 0s
+2080/3688 [===============>..............] - ETA: 0s
+2176/3688 [================>.............] - ETA: 0s
+2272/3688 [=================>............] - ETA: 0s
+2368/3688 [==================>...........] - ETA: 0s
+2464/3688 [===================>..........] - ETA: 0s
+2560/3688 [===================>..........] - ETA: 0s
+2656/3688 [====================>.........] - ETA: 0s
+2752/3688 [=====================>........] - ETA: 0s
+2848/3688 [======================>.......] - ETA: 0s
+2944/3688 [======================>.......] - ETA: 0s
+3040/3688 [=======================>......] - ETA: 0s
+3136/3688 [========================>.....] - ETA: 0s
+3232/3688 [=========================>....] - ETA: 0s
+3328/3688 [==========================>...] - ETA: 0s
+3424/3688 [==========================>...] - ETA: 0s
+3520/3688 [===========================>..] - ETA: 0s
+3616/3688 [============================>.] - ETA: 0sAccuracy: 0.84625813449
+Precision: 0.854108402938
+Recall: 0.84625813449
+F_score: 0.847802394493
+             precision    recall  f1-score   support
+
+          0       0.91      0.83      0.87      2280
+          1       0.76      0.87      0.81      1408
+
+avg / total       0.85      0.85      0.85      3688
+
+No of examples predicted correctly:  3121
+Accuracy, mine = 84.626, keras = 84.626.
+Saved model with json name /home/miruna/PycharmProjects/sarcasm_detection_v1/models/json_bow_nn_2_tfidf_10_basic_18nov.json, and weights /home/miruna/PycharmProjects/sarcasm_detection_v1/models/h5_bow_2_nn_tfidf_10_basic_18nov.json
+Bow with NN completion time: 1000.402 s = 16.673 min
+BoW model analysis completion time: 1031.316 s = 17.189 min
+
+=======================================================
+
+                      Mode :  freq
+
+=======================================================
+
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+The shape of the train set is:  (51189, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+The shape of the train set is:  (3688, 3)
+Columns:  ['Set' 'Label' 'Text']
+Vocabulary (of size 69790) successfully loaded from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/vocabulary.txt.
+Processing tweets in /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+
+=== Linear SVC MODEL ===
+Fitting Linear SVC...
+SVC evaluation...
+Accuracy: 0.710954446855
+Precision: 0.738906978604
+Recall: 0.710954446855
+F_score: 0.715051485659
+             precision    recall  f1-score   support
+
+          0       0.83      0.67      0.74      2280
+          1       0.59      0.78      0.67      1408
+
+avg / total       0.74      0.71      0.72      3688
+
+BoW with SVC completion time: 9.752 s = 0.163 min
+
+=== Feed-forward NN model ===
+List of architectural choices for this run:
+no. of epochs = 10, batch size = 32, hidden layer activation = relu, output layer activation = sigmoid.
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #
+=================================================================
+dense_7 (Dense)              (None, 50)                2631150
+_________________________________________________________________
+dense_8 (Dense)              (None, 1)                 51
+=================================================================
+Total params: 2,631,201
+Trainable params: 2,631,201
+Non-trainable params: 0
+_________________________________________________________________
+Fitting feed-forward NN model...
+Epoch 1/10
+105s - loss: 0.5404 - acc: 0.7366 - f1_score: nan
+Epoch 2/10
+97s - loss: 0.3909 - acc: 0.8316 - f1_score: 0.8189
+Epoch 3/10
+105s - loss: 0.3265 - acc: 0.8640 - f1_score: 0.8549
+Epoch 4/10
+106s - loss: 0.2832 - acc: 0.8846 - f1_score: 0.8769
+Epoch 5/10
+105s - loss: 0.2497 - acc: 0.8993 - f1_score: 0.8925
+Epoch 6/10
+96s - loss: 0.2220 - acc: 0.9106 - f1_score: 0.9044
+Epoch 7/10
+108s - loss: 0.2003 - acc: 0.9194 - f1_score: 0.9134
+Epoch 8/10
+96s - loss: 0.1818 - acc: 0.9265 - f1_score: 0.9213
+Epoch 9/10
+95s - loss: 0.1648 - acc: 0.9353 - f1_score: 0.9309
+Epoch 10/10
+95s - loss: 0.1505 - acc: 0.9396 - f1_score: 0.9351
+NN evaluation...
+  32/3688 [..............................] - ETA: 11s
+  96/3688 [..............................] - ETA: 5s
+ 192/3688 [>.............................] - ETA: 4s
+ 288/3688 [=>............................] - ETA: 3s
+ 352/3688 [=>............................] - ETA: 3s
+ 448/3688 [==>...........................] - ETA: 3s
+ 544/3688 [===>..........................] - ETA: 2s
+ 640/3688 [====>.........................] - ETA: 2s
+ 736/3688 [====>.........................] - ETA: 2s
+ 832/3688 [=====>........................] - ETA: 2s
+ 928/3688 [======>.......................] - ETA: 2s
+1024/3688 [=======>......................] - ETA: 2s
+1120/3688 [========>.....................] - ETA: 2s
+1216/3688 [========>.....................] - ETA: 1s
+1312/3688 [=========>....................] - ETA: 1s
+1440/3688 [==========>...................] - ETA: 1s
+1568/3688 [===========>..................] - ETA: 1s
+1696/3688 [============>.................] - ETA: 1s
+1792/3688 [=============>................] - ETA: 1s
+1920/3688 [==============>...............] - ETA: 1s
+2016/3688 [===============>..............] - ETA: 1s
+2144/3688 [================>.............] - ETA: 1s
+2272/3688 [=================>............] - ETA: 0s
+2400/3688 [==================>...........] - ETA: 0s
+2528/3688 [===================>..........] - ETA: 0s
+2624/3688 [====================>.........] - ETA: 0s
+2752/3688 [=====================>........] - ETA: 0s
+2880/3688 [======================>.......] - ETA: 0s
+3008/3688 [=======================>......] - ETA: 0s
+3104/3688 [========================>.....] - ETA: 0s
+3232/3688 [=========================>....] - ETA: 0s
+3360/3688 [==========================>...] - ETA: 0s
+3488/3688 [===========================>..] - ETA: 0s
+3584/3688 [============================>.] - ETA: 0s
+3688/3688 [==============================] - 2s
+Accuracy: 0.802060737527
+Precision: 0.818701960521
+Recall: 0.802060737527
+F_score: 0.804663432758
+             precision    recall  f1-score   support
+
+          0       0.89      0.77      0.83      2280
+          1       0.70      0.85      0.77      1408
+
+avg / total       0.82      0.80      0.80      3688
+
+No of examples predicted correctly:  2958
+Accuracy, mine = 80.206, keras = 80.206.
+Saved model with json name /home/miruna/PycharmProjects/sarcasm_detection_v1/models/json_bow_nn_2_freq_10_basic_18nov.json, and weights /home/miruna/PycharmProjects/sarcasm_detection_v1/models/h5_bow_2_nn_freq_10_basic_18nov.json
+Bow with NN completion time: 1048.771 s = 17.480 min
+BoW model analysis completion time: 1084.561 s = 18.076 min
