@@ -8,4 +8,4 @@ I am investigating various methods to detect sarcasm in tweets by using both tra
 
 The Twitter dataset belongs to researchers Aniruddha Ghosh and Tony Veale and can be obtained from their GitHub repository https://github.com/AniSkywalker/SarcasmDetection and is under free licence utilisation.
 
-This research project is completed in partial fulfilment of the requirements for the degree of Bachelor of Science in Computer Sciences, the University of Manchester and under the supervision of professor John Mcnaught.
+This research project is completed in partial fulfilment of the requirements for the degree of Bachelor of Science in Computer Science, at the University of Manchester and under the supervision of professor John Mcnaught.
