@@ -1,140 +1,61 @@
 import time
 import os
-import re
-from pandas import read_csv
 from pandas import DataFrame
+import data_processing as data_proc
 import numpy as np
 import keras.backend as K
-from collections import Counter
 from keras.preprocessing.text import Tokenizer
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.models import model_from_json
 from keras import  models
-from nltk.tokenize import TweetTokenizer
 from sklearn import metrics
 from sklearn.svm import LinearSVC
+from sklearn.feature_extraction.text import CountVectorizer
 import matplotlib.pyplot as plt
 
 
 results = DataFrame()
 
 
-def load_file(filename):
-    file = open(filename, 'r')
-    text = file.read()
-    file.close()
-    return text
-
-
-def load_data_panda(filename):
-    print("Reading data from file %s..." % filename)
-    data = read_csv(filename, sep="\t", header=None)
-    data.columns = ["Set", "Label", "Text"]
-    print('The shape of the train set is: ', data.shape)
-    print('Columns: ', data.columns.values)
-    return data
-
-
-def clean_tweet(tweet, clean_hashtag=False, clean_mentions=False, lower_case=False):
-    # Add white space before every punctuation sign so that we can split around it and keep it
-    tweet = re.sub('([!?*&%"~`^+{}])', r' \1 ', tweet)
-    tweet = re.sub('\s{2,}', ' ', tweet)
-    tokens = tweet.split()
-    valid_tokens = []
-    for word in tokens:
-        if word.startswith('#') and clean_hashtag:      # do not include any hash tags
-            continue
-        if word.lower().startswith('#sarca'):           # do not include any #sarca* hashtags
-            continue
-        if clean_mentions and word.startswith('@'):     # replace all mentions with a general user
-            word = '@user'
-        if word.startswith('http'):                     # skip URLs
-            continue
-
-        # Process each word so it does not contain any kind of punctuation or inappropriately merged symbols
-        split_non_alnum = []
-        if (not word[0].isalnum()) and word[0] != '#' and word[0] != '@':
-            index = 0
-            while index < len(word) and not word[index].isalnum():
-                split_non_alnum.append(word[index])
-                index = index + 1
-            word = word[index:]
-        if len(word) > 1 and not word[len(word) - 1].isalnum():
-            index = len(word) - 1
-            while index >= 0 and not word[index].isalnum():
-                split_non_alnum.append(word[index])
-                index = index - 1
-            word = word[:(index + 1)]
-        if word != '':
-            if lower_case:
-                valid_tokens.append(word.lower())
-            else:
-                valid_tokens.append(word)
-        if split_non_alnum != []:
-            valid_tokens.extend(split_non_alnum)
-    return valid_tokens
-
-
-def build_vocabulary(data, vocab_filename, use_tweet_tokenize=False):
-    print("Building vocabulary...")
-    vocabulary = Counter()
-    if use_tweet_tokenize:
-        tknzr = TweetTokenizer(preserve_case=False, reduce_len=True, strip_handles=False)
-    for tweet in data:
-        if use_tweet_tokenize:
-            clean_tw = tknzr.tokenize(tweet)
-            clean_tw = [tw for tw in clean_tw if not tw.startswith('#sarca') and not tw.startswith('http')]
-        else:
-            clean_tw = clean_tweet(tweet)
-        vocabulary.update(clean_tw)
-    save_vocab(vocabulary.keys(), vocab_filename)
-    print("Vocabulary saved to file \"%s\"" %vocab_filename)
-    print("The top 50 most common words: ", vocabulary.most_common(50))
-
-
-def save_vocab(lines, filename):
-    # Convert lines to a single blob of text
-    data = '\n'.join(lines)
-    file = open(filename, 'w')
-    file.write(data)
-    file.close()
-
-
-def process_tweets(data, vocabulary, use_tweet_tokenize=False):
-    tweets = list()
-    if use_tweet_tokenize:
-        tknzr = TweetTokenizer(preserve_case=False, reduce_len=True, strip_handles=False)
-    for tweet in data:
-        if use_tweet_tokenize:
-            clean_tw = tknzr.tokenize(tweet)
-            clean_tw = [tw for tw in clean_tw if not tw.startswith('#sarca') and not tw.startswith('http')]
-        else:
-            clean_tw = clean_tweet(tweet)
-        tokens = [word for word in clean_tw if word in vocabulary]
-        tweets.append(' '.join(tokens))
-    return tweets
-
-
 def process_set(set_filename, vocabulary_filename, use_tweet_tokenize=False):
     # Read the data from the set file
-    data = load_data_panda(set_filename)
-
-    # Build and load the vocabulary
-    if not os.path.exists(vocabulary_filename):
-        build_vocabulary(data["Text"], vocabulary_filename)
-    vocabulary = load_file(vocabulary_filename)
-    vocabulary = set(vocabulary.split())
+    data, labels = data_proc.load_data_panda(set_filename)
+    # Load the vocabulary (and build it if not there)
+    vocabulary = data_proc.build_vocabulary(data, vocabulary_filename)
     print("Vocabulary (of size %d) successfully loaded from file %s." % (len(vocabulary), vocabulary_filename))
-
     # Process the tweets in the set
     print("Processing tweets in %s..." % set_filename)
-    tweets = process_tweets(data["Text"], vocabulary, use_tweet_tokenize)
-
-    # Get the labels for each tweet
-    labels = np.array(data["Label"])
-
+    tweets = data_proc.process_tweets(data, vocabulary, use_tweet_tokenize)
     return tweets, labels
+
+
+def plot_coefficients(classifier, feature_names, path, top_features=20):
+    coef = classifier.coef_.ravel()
+    top_positive_coefficients = np.argsort(coef)[-top_features:]
+    top_negative_coefficients = np.argsort(coef)[:top_features]
+    top_coefficients = np.hstack([top_negative_coefficients, top_positive_coefficients])
+    plt.figure(figsize=(15, 5))
+    colors = ['red' if c < 0 else 'blue' for c in coef[top_coefficients]]
+    plt.bar(np.arange(2 * top_features), coef[top_coefficients], color=colors)
+    feature_names = np.array(feature_names)
+    plt.xticks(np.arange(0, 2 * top_features), feature_names[top_coefficients], rotation=30, ha='right')
+    plt.ylabel("Coefficient Value")
+    plt.title("Visualising Top Features")
+    plt.savefig(path + "/plots/feature_stats_sing_tweet_tknzr.png")
+    plt.show()
+
+
+def analyse_features(train_set, path, vocab_filename, use_tweet_tokenize):
+    print("Analysing coefficients...")
+    tweets, labels = process_set(train_set, vocabulary_filename=vocab_filename,
+                                 use_tweet_tokenize=use_tweet_tokenize)
+    cv = CountVectorizer()
+    cv.fit(tweets)
+    X_train = cv.transform(tweets)
+    svm = LinearSVC()
+    svm.fit(X_train, labels)
+    plot_coefficients(svm, cv.get_feature_names(), path, top_features=5)
 
 
 def print_statistics(y, y_pred, printOnScreen = True):
@@ -166,6 +87,7 @@ def svm(Xtrain, Ytrain, Xtest, Ytest):
           % ((eval_end_time - eval_start_time),(eval_end_time - eval_start_time) / 60.0))
 
 
+# Define f-score metric for keras model.fit
 def f1_score(y_true, y_pred):
     # Count positive samples.
     c1 = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
@@ -196,7 +118,7 @@ def plot_training_statistics(history, plot_name):
 
 
 # Fit and evaluate feed-forward Neural Network model
-def nn(x_train, y_train, x_test, y_test, path, no_of_epochs = 50, batch_size = 32,
+def nn(x_train, y_train, x_test, y_test, path, no_of_epochs = 50, batch_size = 32, mode='tfidf',
        hl_activation_function='relu', ol_activation_function='sigmoid', save=True, plot_graph=True):
     print("\n=== Feed-forward NN model ===")
     print("List of architectural choices for this run: ")
@@ -217,7 +139,7 @@ def nn(x_train, y_train, x_test, y_test, path, no_of_epochs = 50, batch_size = 3
     history = model.fit(x_train, y_train, batch_size=batch_size, epochs=no_of_epochs, verbose=2)
 
     if plot_graph:
-        plot_name = path + "/plots/plot1_" + mode + "_" + str(no_of_epochs) + "epochs_basic.png"
+        plot_name = path + "/plots/plot_using_tweet_tknzr_" + mode + "_mode_" + str(no_of_epochs) + "epochs.png"
         plot_training_statistics(history, plot_name)
 
     # Evaluate the model so far
@@ -231,8 +153,8 @@ def nn(x_train, y_train, x_test, y_test, path, no_of_epochs = 50, batch_size = 3
     print("Accuracy, mine = %.3f, keras = %.3f." % (np.sum(y_test == y_pred) * 100.0 / y_test.size, acc * 100.0))
 
     if save:
-        json_name = path + "/models/json_bow_nn_2_" + mode + "_" + str(no_of_epochs) + "_basic_18nov.json"
-        h5_weights_name = path + "/models/h5_bow_2_nn_" + mode + "_" + str(no_of_epochs) + "_basic_18nov.json"
+        json_name = path + "/models/json_bow_nn_" + mode + "_mode_" + str(no_of_epochs) + "epochs.json"
+        h5_weights_name = path + "/models/h5_bow_nn_" + mode + "_mode_" + str(no_of_epochs) + "epochs.json"
         save_model(model, json_name=json_name, h5_weights_name=h5_weights_name)
 
     eval_end_time = time.time()
@@ -260,7 +182,8 @@ def load_model(json_name, h5_weights_name):
     return model
 
 
-def bag_of_words(train_set, test_set, vocab_filename, path, use_tweet_tokenize=False, mode='tf-idf', use_svm=True, use_nn=True):
+def bag_of_words(train_set, test_set, vocab_filename, path, use_tweet_tokenize=False,
+                 mode='tf-idf', use_svm=True, use_nn=True):
     start = time.time()
 
     # Process and prepare the training and testing sets
@@ -278,30 +201,37 @@ def bag_of_words(train_set, test_set, vocab_filename, path, use_tweet_tokenize=F
     if use_svm:
         svm(x_train, train_labels, x_test, test_labels)
     if use_nn:
-        nn(x_train, train_labels, x_test, test_labels, path, no_of_epochs=10,
+        nn(x_train, train_labels, x_test, test_labels, path, mode=mode, no_of_epochs=10,
                      batch_size=32, save=True, plot_graph=True)
-
     end = time.time()
     print("BoW model analysis completion time: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
 
 
-path = os.getcwd()[:os.getcwd().rfind('/')]
-train_set = path + "/res/train.txt"
-test_set = path + "/res/test.txt"
-use_tweet_tokenize = False
-if use_tweet_tokenize:
-    vocab_filename = path + "/res/vocabulary_tweet_tok.txt"
-else:
-    vocab_filename = path + "/res/vocabulary.txt"
+def main(use_tweet_tokenize=True, make_feature_analysis=True):
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    train_set = path + "/res/train.txt"
+    test_set = path + "/res/test.txt"
 
-modes = ['binary', 'count', 'tfidf', 'freq']
-for mode in modes:
-    print("\n=======================================================\n")
-    print("                      Mode :  %s" % mode)
-    print("\n=======================================================\n")
-    bag_of_words(train_set, test_set, vocab_filename, path, use_tweet_tokenize, mode=mode, use_svm=True, use_nn=True)
-if not results.empty:
-    plt.figure()
-    results.boxplot()
-    plt.savefig(path + "/plots/all_modes_box_plot_nn_10epochs.png")
-    plt.show()
+    if use_tweet_tokenize:
+        vocab_filename = path + "/res/vocabulary_tweet_tok.txt"
+    else:
+        vocab_filename = path + "/res/vocabulary.txt"
+
+    modes = ['binary', 'count', 'tfidf', 'freq']
+    for mode in modes:
+        print("\n=======================================================\n")
+        print("                      Mode :  %s" % mode)
+        print("\n=======================================================\n")
+        bag_of_words(train_set, test_set, vocab_filename, path, use_tweet_tokenize,
+                     mode=mode, use_svm=True, use_nn=True)
+    if not results.empty:
+        plt.figure()
+        results.boxplot()
+        plt.savefig(path + "/plots/all_modes_box_plot_nn_using_tokenizer.png")
+        plt.show()
+    if make_feature_analysis:
+        analyse_features(train_set, path, vocab_filename=vocab_filename, use_tweet_tokenize=use_tweet_tokenize)
+
+
+if __name__ == "__main__":
+    main()

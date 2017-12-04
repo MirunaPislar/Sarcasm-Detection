@@ -3,10 +3,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 from nltk import ngrams, pos_tag
 from collections import Counter
 import numpy as np
-
-strong_affirmatives = ["yes", "yeah", "always", "all", "any", "every", "everybody", "everywhere", "really", "ever"]
-strong_negations = ["no", "not", "never", "none" "n't", "nothing", "neither", "nobody", "nowhere"]
-punctuation = ["?", "!", "..."]
+import data_processing as data_proc
 
 
 def count_apparitions(tokens, list_to_count_from):
@@ -14,30 +11,6 @@ def count_apparitions(tokens, list_to_count_from):
     for affirmative in list_to_count_from:
         total_count += tokens.count(affirmative)
     return total_count
-
-
-def build_subj_dicionary(lines):
-    subj_dict = dict()
-    lines = lines.split("\n")
-    for line in lines:
-        splits = line.split(' ')
-        if len(splits) == 6:
-            word = splits[2][6:]
-            word_type = splits[0][5:]
-            pos = splits[3][5:]
-            polarity = splits[5][14:]
-            line_list = [word_type, pos, polarity]
-            subj_dict[word] = line_list
-    return subj_dict
-
-
-def get_subj_lexicon(path):
-    filename = path + "/res/subjectivity_lexicon.tff"
-    file = open(filename, 'r')
-    text = file.read()
-    file.close()
-    subj_dict = build_subj_dicionary(text)
-    return subj_dict
 
 
 def get_features1(tweets, subj_dict):
@@ -66,9 +39,9 @@ def get_features1(tweets, subj_dict):
                     if subj_dict[stemmed][2] == 'negative':
                         feature_list[3] += 1.0
         # Derive features from punctuation
-        feature_list[4] += count_apparitions(tokens, punctuation)
+        feature_list[4] += count_apparitions(tokens, data_proc.punctuation)
         # Take the number of strong negations as a feature
-        feature_list[5] += count_apparitions(tokens, strong_negations)
+        feature_list[5] += count_apparitions(tokens, data_proc.strong_negations)
         features.append(feature_list)
     return features
 
@@ -97,11 +70,11 @@ def get_features2(tweets, subj_dict):
         if feature_list[0] != 0.0 and feature_list[1] != 0.0:
             feature_list[2] = feature_list[0] / feature_list[1]
         # Derive features from punctuation
-        feature_list[2] += count_apparitions(tokens, punctuation)
+        feature_list[2] += count_apparitions(tokens, data_proc.punctuation)
         # Take strong negations as a feature
-        feature_list[3] += count_apparitions(tokens, strong_negations)
+        feature_list[3] += count_apparitions(tokens, data_proc.strong_negations)
         # Take strong affirmatives as a feature
-        feature_list[4] += count_apparitions(tokens, strong_affirmatives)
+        feature_list[4] += count_apparitions(tokens, data_proc.strong_affirmatives)
         features.append(feature_list)
     return features
 
@@ -145,11 +118,11 @@ def get_features3(tweets, subj_dict):
         if (feature_list[0] + feature_list[2]) != 0.0 and (feature_list[1] + feature_list[3]) != 0.0:
             feature_list[4] = (feature_list[0] + feature_list[2]) / (feature_list[1] + feature_list[3])
         # Derive features from punctuation
-        feature_list[5] += count_apparitions(tokens, punctuation)
+        feature_list[5] += count_apparitions(tokens, data_proc.punctuation)
         # Take strong negations as a feature
-        feature_list[6] += count_apparitions(tokens, strong_negations)
+        feature_list[6] += count_apparitions(tokens, data_proc.strong_negations)
         # Take strong affirmatives as a feature
-        feature_list[7] += count_apparitions(tokens, strong_affirmatives)
+        feature_list[7] += count_apparitions(tokens, data_proc.strong_affirmatives)
         features.append(feature_list)
     return features
 
