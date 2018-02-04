@@ -1,0 +1,828 @@
+Loading data...
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
+The shape of this data set is:  (51189, 3)
+Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
+The shape of this data set is:  (3742, 3)
+#missnevadausa
+Split hash: ['#miss', '#nevada', '#us', '#a']
+#lazyproblem
+Split hash: ['#lazy', '#problem']
+#justbe
+Split hash: ['#just', '#be']
+#AWS
+Split hash: ['#A']
+#zboss
+Split hash: ['#boss']
+#elita
+Split hash: ['#li', '#ta']
+#nerd
+Split hash: ['#ne']
+#toxicstress
+Split hash: ['#toxic', '#stress']
+#gun
+Split hash: ['#gun']
+#teamjojo1980
+Split hash: ['#team', '#o', '#o']
+#indycar
+Split hash: ['#in', '#car']
+#bello
+Split hash: ['#bello']
+#gayboyproblems
+Split hash: ['#gay', '#boy', '#problem']
+#freudianslip
+Split hash: ['#freudian', '#slip']
+#weightloss
+Split hash: ['#weight', '#loss']
+#erolreveals
+Split hash: ['#ro', '#reveal']
+#waynesworld
+Split hash: ['#way', '#ne', '#world']
+#devfestova
+Split hash: ['#de', '#fe', '#sto', '#a']
+#tips
+Split hash: ['#tips']
+#professional
+Split hash: ['#professional']
+#rinkside
+Split hash: ['#rink', '#side']
+#crowdclan
+Split hash: ['#crowd', '#clan']
+#beachwhale
+Split hash: ['#beach', '#whale']
+#iphone4lyfe
+Split hash: ['#i', '#phone', '#fe']
+#videos
+Split hash: ['#video']
+#chiyaan52
+Split hash: ['#chi', '#a', '#an']
+#SAFE
+Split hash: ['#SAFE']
+#senditwayup819
+Split hash: ['#send', '#it', '#way', '#up']
+#49ERS
+Split hash: ['#49ERS']
+#im
+Split hash: ['#im']
+#beatohiostate
+Split hash: ['#beat', '#ohio', '#state']
+#thefuck
+Split hash: ['#the', '#fuck']
+#tryingtolearn
+Split hash: ['#trying', '#to', '#learn']
+#hillaryrottonclinton
+Split hash: ['#hill', '#a', '#rot', '#ton', '#clinton']
+#models
+Split hash: ['#model']
+#GETHEAVYOC
+Split hash: ['#GET', '#HEAVY', '#O']
+#oceanoptimism
+Split hash: ['#ocean', '#optimism']
+#domesticviolence
+Split hash: ['#domestic', '#violence']
+#country
+Split hash: ['#country']
+#headbobbing
+Split hash: ['#head', '#bobbing']
+#feelingfresh
+Split hash: ['#feeling', '#fresh']
+#solidlifechoice
+Split hash: ['#solid', '#life', '#choice']
+#notgonnahappenthough
+Split hash: ['#not', '#gonna', '#happen', '#though']
+#cantsing
+Split hash: ['#cant', '#sing']
+#rightwing
+Split hash: ['#right', '#wing']
+#shocking
+Split hash: ['#shocking']
+#stopchildabuse
+Split hash: ['#stop', '#child', '#abuse']
+#ilkley
+Split hash: ['#ilk', '#ley']
+#cheerpassion
+Split hash: ['#cheer', '#passion']
+#serialkillers
+Split hash: ['#serial', '#killer']
+#fx
+Split hash: ['#fx']
+#makessense
+Split hash: ['#makes', '#sense']
+#NI
+Split hash: ['#NI']
+#theland
+Split hash: ['#the', '#land']
+#duckprints
+Split hash: ['#duck', '#print']
+#care
+Split hash: ['#care']
+#makesmesmile
+Split hash: ['#makes', '#me', '#smile']
+#answers
+Split hash: ['#answers']
+#burnitup
+Split hash: ['#burn', '#it', '#up']
+#notevenajoke
+Split hash: ['#note', '#vena', '#joke']
+#obviously
+Split hash: ['#obviously']
+#lazyday
+Split hash: ['#lazy', '#day']
+#shafi_aqueel
+Split hash: ['#ha', '#i', '#a', '#que']
+#everlasting
+Split hash: ['#everlasting']
+#jackiestory
+Split hash: ['#jack', '#ies', '#tory']
+#ratedrlanguage
+Split hash: ['#rate', '#dr', '#language']
+#CMD
+Split hash: ['#CMD']
+#filmphotography
+Split hash: ['#film', '#photography']
+#adobemuse
+Split hash: ['#adobe', '#muse']
+#colleague
+Split hash: ['#colleague']
+#26
+Split hash: ['#26']
+#customerservice
+Split hash: ['#customer', '#service']
+#bedplease
+Split hash: ['#bed', '#please']
+#informed
+Split hash: ['#informed']
+#badknees
+Split hash: ['#bad', '#knees']
+#love
+Split hash: ['#love']
+#youhaveacrushonyourownboyfriend
+Split hash: ['#you', '#have', '#ac', '#rush', '#on', '#your', '#own', '#boyfriend']
+#youngwildnfree
+Split hash: ['#young', '#wild', '#free']
+#seeyalittletownlife
+Split hash: ['#see', '#a', '#little', '#town', '#life']
+#worker
+Split hash: ['#worker']
+#meredithvieira
+Split hash: ['#meredith', '#vie', '#ira']
+#mylittlepony
+Split hash: ['#my', '#little', '#pony']
+#airline
+Split hash: ['#airline']
+#AND
+Split hash: ['#AND']
+#getittogether
+Split hash: ['#get', '#it', '#together']
+#opportunist
+Split hash: ['#opportunist']
+#teamkey
+Split hash: ['#team', '#key']
+#beethoven
+Split hash: ['#beethoven']
+#sweat
+Split hash: ['#sweat']
+#annoyinggirl
+Split hash: ['#annoying', '#girl']
+#dunkit
+Split hash: ['#dunk', '#it']
+#WCHS
+Split hash: ['#WCHS']
+#beforeidieiwanna
+Split hash: ['#before', '#id', '#ie', '#i', '#wan', '#na']
+#triip
+Split hash: ['#i', '#i']
+#dancingwiththestars
+Split hash: ['#dancing', '#with', '#the', '#stars']
+#happykihyunday
+Split hash: ['#happy', '#ki', '#und', '#a']
+#voteno
+Split hash: ['#vote', '#no']
+#anchordown
+Split hash: ['#anchor', '#down']
+#true
+Split hash: ['#true']
+#кот
+Split hash: ['#кот']
+#alibaba
+Split hash: ['#a', '#li', '#baba']
+#boreddd
+Split hash: ['#bored']
+#reach
+Split hash: ['#reach']
+#bentley
+Split hash: ['#bentley']
+#milkforbritain
+Split hash: ['#milk', '#for', '#brit', '#a', '#in']
+#retrica
+Split hash: ['#re', '#trica']
+#asolorep
+Split hash: ['#as', '#o', '#lore']
+#freakedout
+Split hash: ['#freak', '#do']
+#tfl
+Split hash: ['#tfl']
+#forgothowmuchbarleysucks
+Split hash: ['#forgot', '#how', '#much', '#barley', '#suck']
+#ITSFUCKINGHOT
+Split hash: ['#ITS', '#FUCKING', '#HOT']
+#dcfcvccfc
+Split hash: ['#dcfcvccfc']
+#phhhoto
+Split hash: ['#ph', '#hot', '#o']
+#engage109
+Split hash: ['#engage']
+#arrested
+Split hash: ['#arrested']
+#phoenixsuns
+Split hash: ['#phoenix', '#suns']
+#idgaf
+Split hash: ['#id', '#a']
+#teddybear
+Split hash: ['#teddy', '#bear']
+#trumptrainwreck
+Split hash: ['#trump', '#train', '#wreck']
+#ITT
+Split hash: ['#IT']
+#idea
+Split hash: ['#idea']
+#meal
+Split hash: ['#meal']
+#usmnt
+Split hash: ['#us', '#nt']
+#lovelife
+Split hash: ['#love', '#life']
+#serenawilcox
+Split hash: ['#sere', '#na', '#i', '#co']
+#sainsburys
+Split hash: ['#a', '#ins', '#bury']
+#spontaneous
+Split hash: ['#spontaneous']
+#thewhirllife
+Split hash: ['#the', '#whirl', '#life']
+#notwitter
+Split hash: ['#no', '#twitter']
+#speeditup
+Split hash: ['#speed', '#it', '#up']
+#freshers
+Split hash: ['#fresh']
+#northvancouver
+Split hash: ['#north', '#vancouver']
+#women's
+Split hash: ['#omen']
+#happycall
+Split hash: ['#happy', '#call']
+#24indias2
+Split hash: ['#india']
+#notevenfiguratively
+Split hash: ['#note', '#en', '#figuratively']
+#slapen
+Split hash: ['#slap', '#en']
+#dontactlikeone
+Split hash: ['#dont', '#act', '#like', '#one']
+#form
+Split hash: ['#form']
+#belt
+Split hash: ['#belt']
+#thailand
+Split hash: ['#thailand']
+#bayareacars
+Split hash: ['#baya', '#re', '#ac', '#ars']
+#SCHOOL
+Split hash: ['#SCHOOL']
+#nowusetheminasentence
+Split hash: ['#now', '#use', '#them', '#in', '#a', '#sentence']
+#early
+Split hash: ['#early']
+#bieber
+Split hash: ['#bi', '#be']
+#steviewonderblind
+Split hash: ['#view', '#on', '#der', '#blind']
+#workingirl
+Split hash: ['#working', '#i']
+#noshavenovember
+Split hash: ['#nos', '#haven', '#o', '#ember']
+#FILTHY
+Split hash: ['#FILTHY']
+#faker
+Split hash: ['#faker']
+#wifeymaterial
+Split hash: ['#wife', '#material']
+#socialmediajobs
+Split hash: ['#social', '#media', '#jobs']
+#too
+Split hash: ['#too']
+#fine
+Split hash: ['#fine']
+#tshirts
+Split hash: ['#shirt']
+#americans
+Split hash: ['#american']
+#excelsiorhighschool
+Split hash: ['#excelsior', '#high', '#school']
+#librarythings
+Split hash: ['#library', '#things']
+#notagoodday
+Split hash: ['#nota', '#goodday']
+#YHR
+Split hash: ['#YHR']
+#favoritethings
+Split hash: ['#favorite', '#things']
+#company
+Split hash: ['#company']
+#topnews
+Split hash: ['#top', '#news']
+#hampshireprobs
+Split hash: ['#hampshire', '#pro']
+#boycottfoxnews
+Split hash: ['#boycott', '#fox', '#news']
+#milesformoffitt
+Split hash: ['#mile', '#form', '#off', '#it']
+#musicmajorprobs
+Split hash: ['#music', '#major', '#pro']
+#aldubfightforlove
+Split hash: ['#a', '#dub', '#fight', '#for', '#love']
+#stormy
+Split hash: ['#stormy']
+#futureworldchampion
+Split hash: ['#future', '#world', '#champion']
+#khaifa1
+Split hash: ['#haifa']
+#catsofinstagram
+Split hash: ['#cats', '#of', '#ins', '#tag', '#ram']
+#RAW
+Split hash: ['#RAW']
+#isitonyet
+Split hash: ['#is', '#it', '#on', '#yet']
+#BBCLMS
+Split hash: ['#MS']
+#btw
+Split hash: ['#btw']
+#valueformoney
+Split hash: ['#value', '#form', '#one']
+#catstretching
+Split hash: ['#cats', '#tret', '#chin']
+#rockies
+Split hash: ['#rockies']
+#nhl
+Split hash: ['#nhl']
+#surprising
+Split hash: ['#surprising']
+#whatev
+Split hash: ['#what']
+#kochbrothers
+Split hash: ['#o', '#brother']
+#20
+Split hash: ['#20']
+#sorethroat
+Split hash: ['#sore', '#throat']
+#motivation
+Split hash: ['#motivation']
+#rolltide
+Split hash: ['#roll', '#tide']
+#depressed
+Split hash: ['#depressed']
+#FURTHER
+Split hash: ['#FURTHER']
+#convention
+Split hash: ['#convention']
+#looking
+Split hash: ['#looking']
+#foreveryoung
+Split hash: ['#forever', '#young']
+#badjokes
+Split hash: ['#bad', '#jokes']
+#asian
+Split hash: ['#asian']
+#animalrights
+Split hash: ['#animal', '#rights']
+#unasdreamticket
+Split hash: ['#una', '#dream', '#ticket']
+#feathers
+Split hash: ['#feathers']
+#umassmed
+Split hash: ['#uma', '#me']
+#huge
+Split hash: ['#huge']
+#BBAU
+Split hash: ['#BA']
+#motivationmonday
+Split hash: ['#motivation', '#monday']
+#movingforward
+Split hash: ['#moving', '#forward']
+#wacom
+Split hash: ['#ac', '#om']
+#bleedblue
+Split hash: ['#bleed', '#blue']
+#photonics
+Split hash: ['#photon', '#i']
+#milk
+Split hash: ['#milk']
+#blooddiamondtourdj
+Split hash: ['#blood', '#diamond', '#tour']
+#malebodyposi
+Split hash: ['#male', '#body', '#o', '#si']
+#jeans
+Split hash: ['#jean']
+#riveting
+Split hash: ['#rivet', '#ing']
+#beautysomadaily
+Split hash: ['#beauty', '#soma', '#daily']
+#LIC
+Split hash: ['#LI']
+#RIP
+Split hash: ['#RIP']
+#catch33
+Split hash: ['#catch']
+#california
+Split hash: ['#california']
+#image
+Split hash: ['#image']
+#kickstartgratitude
+Split hash: ['#kick', '#start', '#gratitude']
+#relaxandnetflix
+Split hash: ['#relax', '#and', '#net', '#li']
+#starving
+Split hash: ['#star', '#vin']
+#plant14
+Split hash: ['#plant']
+#short
+Split hash: ['#short']
+#TDE220
+Split hash: ['#DE']
+#basildongetup
+Split hash: ['#basil', '#dong', '#tup']
+#notaeuphamism
+Split hash: ['#nota', '#up', '#ham', '#is']
+#HAPPYTUESDAY
+Split hash: ['#HAPPY', '#TUESDAY']
+#democracy
+Split hash: ['#democracy']
+#nautical
+Split hash: ['#nautical']
+#game
+Split hash: ['#game']
+#probably
+Split hash: ['#probably']
+#inthestyle
+Split hash: ['#int', '#hest', '#le']
+#RCTID
+Split hash: ['#ID']
+#hessonicetome
+Split hash: ['#he', '#sonic', '#tome']
+#skating
+Split hash: ['#skating']
+#leedsunited
+Split hash: ['#leeds', '#united']
+#4252
+Split hash: ['#4252']
+#minecraftovername
+Split hash: ['#mine', '#craft', '#over', '#name']
+#sike
+Split hash: ['#sike']
+#somethingaboutthenamejesus
+Split hash: ['#something', '#about', '#then', '#ame', '#jesus']
+#CDF15
+Split hash: ['#CDF15']
+#bookhugs
+Split hash: ['#book', '#hug']
+#nephew
+Split hash: ['#nephew']
+#poppopisgoingtostealmytreats
+Split hash: ['#pop', '#pop', '#is', '#going', '#tost', '#a', '#my', '#treat']
+#loser
+Split hash: ['#loser']
+#christmas
+Split hash: ['#christmas']
+#pizza
+Split hash: ['#pizza']
+#smackmybitchup
+Split hash: ['#smack', '#my', '#bitch', '#up']
+#loss
+Split hash: ['#loss']
+#imcominghome
+Split hash: ['#im', '#coming', '#home']
+#horngry
+Split hash: ['#horn']
+#GIANTS
+Split hash: ['#GIANTS']
+#thebay
+Split hash: ['#the', '#bay']
+#mooshbot
+Split hash: ['#moo', '#bot']
+#deynaforever
+Split hash: ['#dey', '#na', '#forever']
+#getitin
+Split hash: ['#get', '#it', '#in']
+#MVP
+Split hash: ['#MVP']
+#bighornsheep
+Split hash: ['#bighorn', '#sheep']
+#faith
+Split hash: ['#faith']
+#gtfoh
+Split hash: ['#foh']
+#showtimekiligcontinues
+Split hash: ['#show', '#time', '#ki', '#li', '#continue']
+#lifesbrill
+Split hash: ['#life', '#brill']
+#maybe
+Split hash: ['#maybe']
+#kualalumpur
+Split hash: ['#ala', '#lump']
+#FAV
+Split hash: ['#A']
+#nothanksbono
+Split hash: ['#not', '#hank', '#bono']
+#laughingandcrying
+Split hash: ['#laughing', '#and', '#crying']
+#nutella
+Split hash: ['#nut', '#ell', '#a']
+#comebacktoireland
+Split hash: ['#come', '#back', '#to', '#ireland']
+#SOINTERESTING
+Split hash: ['#so', '#interesting']
+#unicorn
+Split hash: ['#unicorn']
+#chillbythefire
+Split hash: ['#chill', '#by', '#the', '#fire']
+#safe
+Split hash: ['#safe']
+#both
+Split hash: ['#both']
+#thanksandpraises
+Split hash: ['#thanks', '#and', '#praises']
+#buisness
+Split hash: ['#is', '#ness']
+#updates
+Split hash: ['#update']
+#mypoorarm
+Split hash: ['#my', '#poor', '#arm']
+#saidnooneever
+Split hash: ['#said', '#noon', '#ever']
+#bw
+Split hash: ['#bw']
+#established
+Split hash: ['#established']
+#perfect
+Split hash: ['#perfect']
+#arkansas
+Split hash: ['#arkansas']
+#trendsetter
+Split hash: ['#trend', '#setter']
+#doctorssuck
+Split hash: ['#doctors', '#suck']
+#poisonivy
+Split hash: ['#poison', '#ivy']
+#eatoutawards
+Split hash: ['#eat', '#out', '#award']
+#complexapplication
+Split hash: ['#complex', '#application']
+#GREAT
+Split hash: ['#GREAT']
+#rejected
+Split hash: ['#rejected']
+#candid
+Split hash: ['#candid']
+#legoheads
+Split hash: ['#leg', '#oh', '#ad']
+#thuglife
+Split hash: ['#thug', '#life']
+#christinebrennan
+Split hash: ['#christ', '#in', '#bren', '#na']
+#strictlyagainstbreastcancer
+Split hash: ['#strictly', '#against', '#breast', '#cancer']
+#clean
+Split hash: ['#clean']
+#sisteroftheyear
+Split hash: ['#sister', '#oft', '#hey', '#ear']
+#charity
+Split hash: ['#charity']
+#stellarflow
+Split hash: ['#stellar', '#flow']
+#texas
+Split hash: ['#texas']
+#yey
+Split hash: ['#yey']
+#westcliff
+Split hash: ['#west', '#cliff']
+#sorosleak
+Split hash: ['#so', '#ro', '#leak']
+#brooksbrothers
+Split hash: ['#brook', '#brother']
+#quote
+Split hash: ['#quote']
+#florida
+Split hash: ['#florida']
+#onlyinitforthefood
+Split hash: ['#only', '#init', '#forth', '#food']
+#coffeebreak
+Split hash: ['#coffee', '#break']
+#monster
+Split hash: ['#monster']
+#on
+Split hash: ['#on']
+#comehomeissoot
+Split hash: ['#come', '#home', '#is', '#soot']
+#can'twait
+Split hash: ['#can', '#wait']
+#win
+Split hash: ['#win']
+#saywhat
+Split hash: ['#say', '#what']
+#nationalheadwrapday
+Split hash: ['#national', '#head', '#wrap', '#day']
+#icantactuallypromisethat
+Split hash: ['#i', '#cant', '#actually', '#promise', '#that']
+#proteafire
+Split hash: ['#protea', '#fire']
+#fans
+Split hash: ['#fan']
+#here
+Split hash: ['#here']
+#bongtokes
+Split hash: ['#bong', '#toke']
+#slip
+Split hash: ['#slip']
+#whatamithinking
+Split hash: ['#what', '#am', '#i', '#thinking']
+#nzpol
+Split hash: ['#o']
+#motel
+Split hash: ['#motel']
+#dayoff
+Split hash: ['#day', '#off']
+#sws2015
+Split hash: ['#sws2015']
+#magazine
+Split hash: ['#magazine']
+#libras
+Split hash: ['#libra']
+#xmasunlimited
+Split hash: ['#mas', '#unlimited']
+#superduper
+Split hash: ['#super', '#dupe']
+#lifeshard
+Split hash: ['#life', '#shard']
+#mondays
+Split hash: ['#monday']
+#illustration
+Split hash: ['#illustration']
+#baddog
+Split hash: ['#bad', '#dog']
+#mansonebatez
+Split hash: ['#mans', '#one', '#bate']
+#wanted
+Split hash: ['#wanted']
+#creative
+Split hash: ['#creative']
+#geruafastest5mviews
+Split hash: ['#a', '#fast', '#est', '#views']
+#vlogger
+Split hash: ['#logger']
+#timeforanewphone
+Split hash: ['#time', '#for', '#anew', '#phone']
+#letsgog
+Split hash: ['#lets', '#gog']
+#trump
+Split hash: ['#trump']
+#STROMBOLI
+Split hash: ['#STROM', '#BO', '#LI']
+#nofillings
+Split hash: ['#no', '#filling']
+#notaspro
+Split hash: ['#nota', '#pro']
+#yumm
+Split hash: ['#yum']
+#newyorktimes
+Split hash: ['#new', '#york', '#times']
+#howto
+Split hash: ['#how', '#to']
+#dispute
+Split hash: ['#dispute']
+#branding
+Split hash: ['#brand', '#ing']
+#freezer
+Split hash: ['#freeze']
+#sleepyhollow
+Split hash: ['#sleepy', '#hollow']
+#wekilllive
+Split hash: ['#we', '#kill', '#live']
+#know
+Split hash: ['#know']
+#makeup
+Split hash: ['#makeup']
+#iran
+Split hash: ['#iran']
+#MADHOUSE
+Split hash: ['#MAD', '#HOUSE']
+#djing
+Split hash: ['#ing']
+#hookah
+Split hash: ['#hookah']
+#yet
+Split hash: ['#yet']
+#valeriamarini
+Split hash: ['#vale', '#i', '#amari', '#ni']
+#MAC
+Split hash: ['#MAC']
+#ilovehousework
+Split hash: ['#i', '#love', '#housework']
+#emmys
+Split hash: ['#my']
+#camp
+Split hash: ['#camp']
+#bramptonsanta
+Split hash: ['#bra', '#tons', '#ant', '#a']
+#someon
+Split hash: ['#some', '#on']
+#trucker
+Split hash: ['#truck']
+#SEEN
+Split hash: ['#SEEN']
+#fbgirl
+Split hash: ['#girl']
+#choice
+Split hash: ['#choice']
+#MTP
+Split hash: ['#MTP']
+#MTVSTARS
+Split hash: ['#STARS']
+#redcup
+Split hash: ['#red', '#cup']
+#dilas2015
+Split hash: ['#di', '#las']
+#exception
+Split hash: ['#exception']
+#flippingplastic
+Split hash: ['#flip', '#ping', '#plastic']
+#parisjetaime
+Split hash: ['#paris', '#jet', '#aim']
+#bulking
+Split hash: ['#bulk', '#ing']
+#SLEEPLESSNIGHTS5
+Split hash: ['#SLEEP', '#LESS', '#NIGHTS']
+#LSP
+Split hash: ['#LSP']
+#generator
+Split hash: ['#generator']
+#gadget
+Split hash: ['#gadget']
+#rock
+Split hash: ['#rock']
+#fanduellife
+Split hash: ['#fan', '#duel', '#life']
+#stopthespin
+Split hash: ['#stop', '#the', '#spin']
+#whereismyshoe
+Split hash: ['#where', '#is', '#my', '#shoe']
+#joethemorton
+Split hash: ['#joe', '#them', '#or', '#ton']
+#CFL
+Split hash: ['#CFL']
+#slc
+Split hash: ['#slc']
+#1dniall
+Split hash: ['#ni', '#all']
+#alloafc
+Split hash: ['#allo', '#a']
+#summit16
+Split hash: ['#summit']
+#theproblem
+Split hash: ['#the', '#problem']
+#inforumsf
+Split hash: ['#in', '#forum']
+#cumshot
+Split hash: ['#cum', '#shot']
+#picoftheday
+Split hash: ['#pi', '#co', '#the', '#day']
+#exercise
+Split hash: ['#exercise']
+#lie
+Split hash: ['#lie']
+#strongtwittergame
+Split hash: ['#strong', '#twitter', '#game']
+#ford
+Split hash: ['#ford']
+#ponytailsr4girls
+Split hash: ['#ponytail', '#girl']
+#bigmouth
+Split hash: ['#big', '#mouth']
+#contained
+Split hash: ['#contained']
+#acdc's
+Split hash: ['#ac']
+#thisislove
+Split hash: ['#this', '#is', '#love']
+#nativeamerican
+Split hash: ['#native', '#american']
+#trumptaxreturns
+Split hash: ['#trump', '#tax', '#returns']
+#knowthat
+Split hash: ['#know', '#that']
+#youcantpredictdeath
+Split hash: ['#you', '#cant', '#predict', '#death']
+#whowouldhavethunkit
+Split hash: ['#who', '#would', '#have', '#thunk', '#it']
+#SFOA
+Split hash: ['#O', '#A']
+#firsttimeinmonths
