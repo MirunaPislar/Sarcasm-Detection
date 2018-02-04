@@ -46,7 +46,7 @@ def plot_share_of_topics(path, all_doc_topics, no_random_tweets=10):
         plt.bar(ind, doc_topics[:, i], width=width)
         plt.xticks(ind + width / 2, doc_names, size=6)
         plt.title('Share of Topic %d' % i)
-        plt.savefig(path + "/plots/topic_modelling/share_of_topic_%d_random_%d_tweets_v2" % (i, no_random_tweets))
+        plt.savefig(path + "/plots/topic_modelling/share_of_topic_%d_random_%d_tweets_verbs_and_nouns" % (i, no_random_tweets))
         plt.show()
 
     # Plot all the topics distributions over the random 10 tweets in a nice bar graph
@@ -68,7 +68,7 @@ def plot_share_of_topics(path, all_doc_topics, no_random_tweets=10):
     plt.yticks(np.arange(0, 1, 10))
     topic_labels = ['Topic #{}'.format(k) for k in range(K)]
     plt.legend([p[0] for p in plots], topic_labels, bbox_to_anchor=(1.04, 0.5), loc="center left")
-    plt.savefig(path + "/plots/topic_modelling/bar_graph_topic_distribution_random_%d_tweets_v2" % no_random_tweets, bbox_inches='tight')
+    plt.savefig(path + "/plots/topic_modelling/bar_graph_topic_distribution_random_%d_tweets_verbs_and_nouns" % no_random_tweets, bbox_inches='tight')
     plt.show()
 
     # Plot a "heat map" of the topics distributions
@@ -79,7 +79,7 @@ def plot_share_of_topics(path, all_doc_topics, no_random_tweets=10):
     plt.xticks(rotation=90)
     plt.colorbar(cmap='Reds')
     plt.tight_layout()
-    plt.savefig(path + "/plots/topic_modelling/heat_map_topic_distribution_random_%d_tweets_v2" % no_random_tweets)
+    plt.savefig(path + "/plots/topic_modelling/heat_map_topic_distribution_random_%d_tweets_verbs_and_nouns" % no_random_tweets)
     plt.show()
 
 
@@ -99,14 +99,13 @@ def plot_top_10_words_per_topic(path, ldatopic_words, num_topics=6, num_top_word
         for i, (word, share) in enumerate(zip(words, probs)):
             plt.text(0.05, num_top_words - i - 0.5, word, fontsize=fontsize_base * share)
     plt.tight_layout()
-    plt.savefig(path + "/plots/topic_modelling/top_10_words_contributing_to_topics")
+    plt.savefig(path + "/plots/topic_modelling/top_10_words_contributing_to_topics_using_verbs_and_nouns")
     plt.show()
 
 
 def get_documents(path, filename, use_nouns=True, use_verbs=False):
     lemmatizer = WordNetLemmatizer()
-    filename = path + "/res/tweets_pos_" + filename
-    print("Loading data...")
+    filename = path + "/res/tweets_" + filename
     data = data_proc.load_file(filename).split("\n")
     documents = []
     clean_data = []
@@ -165,19 +164,20 @@ def gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verb
         plot_share_of_topics(path, all_doc_topics, no_random_tweets=10)
 
     # Plot words coloured differently depending on the topic
-    for doc in documents[10:20]:
-        if len(doc) > 1:
+    for doc in documents[0:100]:
+        if len(doc) > 4:
             color_words(ldamodel, doc)
 
 
 def main():
     path = os.getcwd()[:os.getcwd().rfind('/')]
+    print("Begin processing...")
     filename = "train.txt"
     start = time.time()
-    documents = get_documents(path, filename)
+    documents = get_documents(path, filename, use_nouns=True, use_verbs=True)
     end = time.time()
     print("\nCompletion time for loading docs: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
-    gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verbose=True, plotTopicsResults=True)
+    gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verbose=False, plotTopicsResults=True)
 
 
 if __name__ == "__main__":
