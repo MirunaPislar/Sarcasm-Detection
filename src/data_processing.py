@@ -1,9 +1,8 @@
 import re, os
-import numpy as np
-from pandas import read_csv
 from collections import Counter
 from nltk.stem.wordnet import WordNetLemmatizer
 import split_hashtags as splitter
+import utils
 
 
 strong_affirmatives = ["yes", "yeah", "always", "all", "any", "every", "everybody", "everywhere", "ever"]
@@ -29,40 +28,6 @@ intensifiers = ["amazingly", "astoundingly", "awful", "bare", "bloody", "crazy",
 path = os.getcwd()[:os.getcwd().rfind('/')]
 
 
-def load_file(filename):
-    file = open(filename, 'r')
-    text = file.read()
-    file.close()
-    return text
-
-
-def save_file(lines, filename):
-    data = '\n'.join(lines)
-    file = open(filename, 'w')
-    file.write(data)
-    file.close()
-
-
-def load_data_panda(filename):
-    print("Reading data from file %s..." % filename)
-    data = read_csv(filename, sep="\t+", header=None, engine='python')
-    data.columns = ["Set", "Label", "Text"]
-    print('The shape of this data set is: ', data.shape)
-    return np.array(data["Text"]), np.array(data["Label"])
-
-
-def save_as_dataset(data, labels, filename):
-    lines = []
-    first_word = "TrainSet" if "train" in filename else "TestSet"
-    for i in range(len(labels)):
-        if data[i] is not None:
-            lines.append(first_word + '\t' + str(labels[i]) + '\t' + str(data[i]))
-    data = '\n'.join(lines)
-    file = open(filename, 'w')
-    file.write(data)
-    file.close()
-
-
 def build_subj_dicionary(lines):
     subj_dict = dict()
     lines = lines.split("\n")
@@ -83,14 +48,14 @@ def build_subj_dicionary(lines):
 
 def get_subj_lexicon():
     filename = path + "/res/subjectivity_lexicon.tff"
-    lexicon = load_file(filename)
+    lexicon = utils.load_file(filename)
     subj_dict = build_subj_dicionary(lexicon)
     return subj_dict
 
 
 def get_emoji_dictionary():
     filename = path + "/res/emoji_list.txt"
-    emojis = load_file(filename).split("\n")
+    emojis = utils.load_file(filename).split("\n")
     emoji_dict = {}
     for line in emojis:
         line = line.split(" ", 1)
@@ -104,7 +69,7 @@ def build_emoji_sentiment_dictionary():
     new_emoji_sentiment_filename = path + "/res/emoji_sentiment_dictionary.txt"
     if not os.path.exists(new_emoji_sentiment_filename):
         filename = path + "/res/emoji_sentiment_raw.txt"
-        emojis = load_file(filename).split("\n")[1:]
+        emojis = utils.load_file(filename).split("\n")[1:]
         lines = []
         for line in emojis:
             line = line.split(",")
@@ -116,8 +81,8 @@ def build_emoji_sentiment_dictionary():
             description = line[7]
             lines.append(str(emoji) + "\t" + str(negative) + "\t" + str(neutral)
                          + "\t" + str(positive) + "\t" + description.lower())
-        save_file(lines, new_emoji_sentiment_filename)
-    emoji_sentiment_data = load_file(new_emoji_sentiment_filename).split("\n")
+            utils.save_file(lines, new_emoji_sentiment_filename)
+    emoji_sentiment_data = utils.load_file(new_emoji_sentiment_filename).split("\n")
     emoji_sentiment_dict = {}
     for line in emoji_sentiment_data:
         line = line.split("\t")
@@ -131,14 +96,57 @@ def build_vocabulary(vocab_filename, lines, minimum_occurrence=1):
         print("Building vocabulary...")
         vocabulary = Counter()
         for line in lines:
-            vocabulary.update(line)
+            vocabulary.update([l.lower() for l in line])
         print("The top 10 most common words: ", vocabulary.most_common(10))
-        # Filter all words that appear too rarely to be conclusive
-        vocabulary = {key: vocabulary[key] for key in vocabulary if vocabulary[key] >= minimum_occurrence}
-        save_file(vocabulary.keys(), vocab_filename)
+        # Filter all words that appear too rarely or too frequent to be conclusive
+        vocabulary = {key: vocabulary[key] for key in vocabulary
+                      if vocabulary[key] >= minimum_occurrence
+                      and key not in vocabulary.most_common(10)}
+        utils.save_file(vocabulary.keys(), vocab_filename)
         print("Vocabulary saved to file \"%s\"" % vocab_filename)
-    vocabulary = load_file(vocab_filename)
-    return set(vocabulary.split())
+    vocabulary = set(utils.load_file(vocab_filename).split())
+    print("Loaded vocabulary of size ", len(vocabulary))
+    return vocabulary
+
+
+def build_vocabulary_for_dnn_tasks(vocab_filename, lines):
+    if not os.path.exists(vocab_filename):
+        print("Building vocabulary...")
+        vocabulary = Counter()
+        for line in lines:
+            vocabulary.update([l.lower() for l in line])
+        vocabulary = {key: vocabulary[key] for key in vocabulary}
+        vocabulary = sorted(vocabulary.items(), key=lambda pair: pair[1], reverse=True)
+        counter = 1
+        indexed_vocabulary = {}
+        for (key, _) in vocabulary:
+            indexed_vocabulary[key] = counter
+            counter += 1
+        indexed_vocabulary['unk'] = len(indexed_vocabulary) + 1
+        utils.save_dictionary(indexed_vocabulary, vocab_filename)
+        print("Vocabulary saved to file \"%s\"" % vocab_filename)
+    vocabulary = utils.load_dictionary(vocab_filename)
+    print("Loaded vocabulary of size ", len(vocabulary))
+    return vocabulary
+
+
+def vocabulary_filtering(vocabulary, lines):
+    filtered_lines = []
+    indices = []
+    for line in lines:
+        filtered_line = []
+        individual_word_indices = []
+        for word in line:
+            word = word.lower()
+            if word in vocabulary:
+                individual_word_indices.append(vocabulary[word])
+                filtered_line.append(word)
+            else:
+                individual_word_indices.append(vocabulary['unk'])
+                filtered_line.append('unk')
+        indices.append(individual_word_indices)
+        filtered_lines.append(filtered_line)
+    return filtered_lines, indices
 
 
 def ulterior_token_clean(tweets_tokens, vocab_filename, filtered_tokens_filename):
@@ -155,10 +163,16 @@ def ulterior_token_clean(tweets_tokens, vocab_filename, filtered_tokens_filename
         vocab = build_vocabulary(vocab_filename, filtered_tweets_tokens, minimum_occurrence=5)
         filtered_again = []
         for tweet in filtered_tweets_tokens:
-            filtered_again.append(' '.join([w for w in tweet if w in vocab]))
-        save_file(filtered_again, filtered_tokens_filename)
+            filtered_again_tweet = []
+            for word in tweet:
+                if word in vocab:
+                    filtered_again_tweet.append(word)
+                else:
+                    filtered_again_tweet.append('unk')
+            filtered_again.append(' '.join([f for f in filtered_again_tweet]))
+        utils.save_file(filtered_again, filtered_tokens_filename)
     # Load the filtered tokens
-    filtered_tweets_tokens = load_file(filtered_tokens_filename).split("\n")
+    filtered_tweets_tokens = utils.load_file(filtered_tokens_filename).split("\n")
     return filtered_tweets_tokens
 
 
@@ -166,17 +180,24 @@ def ulterior_pos_clean(tweets_pos_tags, vocab_filename, filtered_pos_filename):
     if not os.path.exists(filtered_pos_filename):
         vocab = build_vocabulary(vocab_filename, tweets_pos_tags, minimum_occurrence=50)
         filtered_tweets_pos_tags = []
-        for tweet_pos_tags in tweets_pos_tags:
-            filtered_tweets_pos_tags.append(' '.join([pos_tag for pos_tag in tweet_pos_tags if pos_tag in vocab]))
-        save_file(filtered_tweets_pos_tags, filtered_pos_filename)
+        for tweet_pos_tag in tweets_pos_tags:
+            # filtered_tweets_pos_tags.append(' '.join([pos_tag for pos_tag in tweet_pos_tag if pos_tag in vocab]))
+            filtered_again_pos_tags = []
+            for pos in tweet_pos_tag:
+                if pos in vocab:
+                    filtered_again_pos_tags.append(pos)
+                else:
+                    filtered_again_pos_tags.append('unk')
+            filtered_tweets_pos_tags.append(' '.join([f for f in filtered_again_pos_tags]))
+        utils.save_file(filtered_tweets_pos_tags, filtered_pos_filename)
     # Load the filtered tokens
-    filtered_tweets_pos_tags = load_file(filtered_pos_filename).split("\n")
+    filtered_tweets_pos_tags = utils.load_file(filtered_pos_filename).split("\n")
     return filtered_tweets_pos_tags
 
 
 def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
     if not os.path.exists(pos_filename):
-        tweets = load_file(tweets_filename).split("\n")
+        tweets = utils.load_file(tweets_filename).split("\n")
         tokens_lines = []
         pos_lines = []
         tokens_line = ""
@@ -191,11 +212,11 @@ def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
                 t_split = t.split("\t")
                 tokens_line += t_split[0] + " "
                 pos_line += t_split[1] + " "
-        save_file(tokens_lines, tokens_filename)
-        save_file(pos_lines, pos_filename)
+        utils.save_file(tokens_lines, tokens_filename)
+        utils.save_file(pos_lines, pos_filename)
     # Load the tokens and the pos for the tweets in this set
-    tokens = load_file(tokens_filename).split("\n")
-    pos = load_file(pos_filename).split("\n")
+    tokens = utils.load_file(tokens_filename).split("\n")
+    pos = utils.load_file(pos_filename).split("\n")
     return tokens, pos
 
 
@@ -229,12 +250,26 @@ def process_tweets(data, word_list):
     return tweets
 
 
+def process_set(dataset_filename, vocab_filename, word_list):
+    data, labels = utils.load_data_panda(dataset_filename)
+    tweets = process_tweets(data, word_list)
+    vocabulary = build_vocabulary(tweets, vocab_filename, minimum_occurrence=10)
+    filtered_tweets = []
+    for tweet in tweets:
+        filtered_tweets.append([t for t in tweet if t in vocabulary])
+    return filtered_tweets, labels
+
+
 def initial_clean(tweets, clean_filename, word_file):
     if not os.path.exists(clean_filename):
         word_file = path + "/res/" + word_file
-        word_list = load_file(word_file).split()
+        word_list = utils.load_file(word_file).split()
         filtered_tweets = process_tweets(tweets, word_list=word_list)
-        save_file(filtered_tweets, clean_filename)
+        utils.save_file(filtered_tweets, clean_filename)
+        return filtered_tweets
+    else:
+        filtered_tweets = [[word for word in line.split()] for line in utils.load_file(clean_filename).split("\n")]
+        return filtered_tweets
 
 
 def get_clean_data(train_filename, test_filename, word_list):
@@ -246,30 +281,71 @@ def get_clean_data(train_filename, test_filename, word_list):
 
     # Load the train and test sets
     print("Loading data...")
-    train_tweets, train_labels = load_data_panda(path + "/res/" + train_filename)
-    test_tweets, test_labels = load_data_panda(path + "/res/" + test_filename)
+    train_tweets, train_labels = utils.load_data_panda(path + "/res/" + train_filename)
+    test_tweets, test_labels = utils.load_data_panda(path + "/res/" + test_filename)
 
     # Initial clean of data
     initial_clean(train_tweets, path + "/res/clean_" + train_filename, word_list)
     initial_clean(test_tweets, path + "/res/clean_" + test_filename, word_list)
 
     # Get the tags corresponding to the test and train files
-    train_tokens, train_pos = get_tags_for_each_tweet(path + "/res/" + tweets_filename + train_filename,
-                                                      path + "/res/" + tokens_filename + train_filename,
-                                                      path + "/res/" + pos_filename + train_filename)
-    test_tokens, test_pos = get_tags_for_each_tweet(path + "/res/" + tweets_filename + test_filename,
-                                                      path + "/res/" + tokens_filename + test_filename,
-                                                      path + "/res/" + pos_filename + test_filename)
+    train_tokens, train_pos = \
+        get_tags_for_each_tweet(path + "/res/" + tweets_filename + train_filename,
+                                path + "/res/" + tokens_filename + train_filename,
+                                path + "/res/" + pos_filename + train_filename)
+    test_tokens, test_pos = \
+        get_tags_for_each_tweet(path + "/res/" + tweets_filename + test_filename,
+                                path + "/res/" + tokens_filename + test_filename,
+                                path + "/res/" + pos_filename + test_filename)
     # Ulterior clean of the tags (tokens and pos)
     
-    filtered_train_tokens = ulterior_token_clean(train_tokens, path + "/res/" + tokens_vocab_filename,
-                                                 path + "/res/filtered_" + tokens_filename + train_filename)
-    filtered_test_tokens = ulterior_token_clean(test_tokens, path + "/res/" + tokens_vocab_filename,
-                                                path + "/res/filtered_" + tokens_filename + test_filename)
-    filtered_train_pos = ulterior_pos_clean(train_pos, path + "/res/" + pos_vocab_filename,
-                                            path + "/res/filtered_" + pos_filename + train_filename)
-    filtered_test_pos = ulterior_pos_clean(test_pos, path + "/res/" + pos_vocab_filename,
-                                           path + "/res/filtered_" + pos_filename + test_filename)
+    filtered_train_tokens = \
+        ulterior_token_clean(train_tokens, path + "/res/" + tokens_vocab_filename,
+                             path + "/res/filtered_" + tokens_filename + train_filename)
+    filtered_test_tokens = \
+        ulterior_token_clean(test_tokens, path + "/res/" + tokens_vocab_filename,
+                             path + "/res/filtered_" + tokens_filename + test_filename)
+    filtered_train_pos = \
+        ulterior_pos_clean(train_pos, path + "/res/" + pos_vocab_filename,
+                           path + "/res/filtered_" + pos_filename + train_filename)
+    filtered_test_pos = \
+        ulterior_pos_clean(test_pos, path + "/res/" + pos_vocab_filename,
+                           path + "/res/filtered_" + pos_filename + test_filename)
     
-    return train_tokens, filtered_train_tokens, train_pos, filtered_train_pos, train_labels, \
-           test_tokens, filtered_test_tokens, test_pos, filtered_test_pos, test_labels
+    return train_tokens, filtered_train_tokens, train_pos, filtered_train_pos, train_labels,\
+        test_tokens, filtered_test_tokens, test_pos, filtered_test_pos, test_labels
+
+
+def get_clean_dl_data(train_filename, dev_filename, test_filename, word_list):
+    vocab_filename = "dnn_vocabulary_" + train_filename
+
+    # Load the train and test sets
+    print("Loading data...")
+    train_tweets, train_labels = utils.load_data_panda(path + "/res/" + train_filename)
+    dev_tweets, dev_labels = utils.load_data_panda(path + "/res/" + dev_filename)
+    test_tweets, test_labels = utils.load_data_panda(path + "/res/" + test_filename)
+
+    # Initial clean of data
+    clean_train_tweets = initial_clean(train_tweets, path + "/res/clean_" + train_filename, word_list)
+    clean_dev_tweets = initial_clean(dev_tweets, path + "/res/clean_" + dev_filename, word_list)
+    clean_test_tweets = initial_clean(test_tweets, path + "/res/clean_" + test_filename, word_list)
+
+    vocabulary = build_vocabulary_for_dnn_tasks(path + "/res/" + vocab_filename, clean_train_tweets)
+    clean_train_tweets, train_indices = vocabulary_filtering(vocabulary, clean_train_tweets)
+    clean_dev_tweets, dev_indices = vocabulary_filtering(vocabulary, clean_dev_tweets)
+    clean_test_tweets, test_indices = vocabulary_filtering(vocabulary, clean_test_tweets)
+
+    return clean_train_tweets, train_indices, train_labels, \
+        clean_dev_tweets, dev_indices, dev_labels, \
+        clean_test_tweets, test_indices, test_labels, len(vocabulary)
+
+
+# Method to print the features used
+# @feature_options - list of True/False values; specifies which set of features is active
+# @feature_names - list of names for each feature set
+def print_features(feature_options, feature_names):
+    print("\n=========================    FEATURES    =========================\n")
+    for name, value in zip(feature_names, feature_options):
+        line_new = '{:>30}  {:>10}'.format(name, value)
+        print(line_new)
+    print("\n==================================================================\n")
