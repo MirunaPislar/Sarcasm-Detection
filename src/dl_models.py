@@ -1,4 +1,4 @@
-import os, sys, time, datetime
+import os, sys, time
 import numpy as np
 import data_processing as data_proc
 import utils
@@ -19,6 +19,7 @@ def build_standard_dnn_model(input_shape, hidden_units=256):
 
     model = Sequential()
     model.add(Dense(hidden_units, input_shape=(input_shape,), kernel_initializer='he_normal', activation='relu'))
+    model.add(Dense(hidden_units, kernel_initializer='he_normal', activation='relu'))
     model.add(Dense(2, activation='softmax'))
     return model
 
@@ -146,29 +147,14 @@ def print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_un
     print("==================================================================\n")
 
 
-class writer:
-    def __init__(self, *writers):
-        self.writers = writers
-
-    def write(self, text):
-        for w in self.writers:
-            w.write(text)
-
-    def flush(self):
-        pass
-
-
 if __name__ == "__main__":
     path = os.getcwd()[:os.getcwd().rfind('/')]
-    saved = sys.stdout
-    fout = open(path + '/stats/dnn_models_analysis_second_run.txt', 'wt')
-    sys.stdout = writer(sys.stdout, fout)
-    print("Current date and time: %s\n" % str(datetime.datetime.now()))
+    to_write_filename = path + '/stats/dnn_models_analysis_third_run.txt'
+    utils.initialize_writer(to_write_filename)
 
-    # sys.stdout = open(path + '/stats/dnn_models_analysis.txt', 'wt')
-    train_file = "train_sample.txt"
+    train_file = "train.txt"
     dev_file = "dev.txt"
-    test_file = "test_sample.txt"
+    test_file = "test.txt"
     word_list = "word_list.txt"
 
     # For each tweet, get the filtered data, the sequences of word indices and the labels
@@ -187,7 +173,7 @@ if __name__ == "__main__":
 
     # Build and analyse the models
     dnn_models = ['standard', 'conv', 'lstm', 'gru', 'bidirectional', 'conv+lstm']
-    dnn_models = ['conv']
+    # dnn_models = ['conv']
     # Pad sequences with 0s
     x_train = sequence.pad_sequences(train_indices, maxlen=max_tweet_length, padding='pre', truncating='pre', value=0.)
     x_dev = sequence.pad_sequences(dev_indices, maxlen=max_tweet_length, padding='pre', truncating='pre', value=0.)
@@ -197,10 +183,10 @@ if __name__ == "__main__":
     y_train, y_dev = [np_utils.to_categorical(y) for y in (train_labels, dev_labels)]
 
     # The settings for the upcoming models
-    epochs = 5
-    batch_size = 8
+    epochs = 50
+    batch_size = 32
     embedding_vector_dim = 256
-    hidden_units = 100
+    hidden_units = 256
     dropout = 0.3
     print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units, epochs, batch_size, dropout)
 
@@ -250,7 +236,7 @@ if __name__ == "__main__":
 
         # If want to plot model
         if plot_training_graph:
-            utils.plot_training_statistics(history, path + "/plots/dnn_models/" + dnn_model + "_model.png")
+            utils.plot_training_statistics(history, path + "/plots/dnn_models/" + dnn_model)
 
         # Load the best model
         model = utils.load_model(json_name=path + '/models/dnn_models/model_json/' + dnn_model + '_model.json',
@@ -264,5 +250,4 @@ if __name__ == "__main__":
         print("%s model analysis completion time: %.3f s = %.3f min"
               % (dnn_model, (end - start), (end - start) / 60.0))
         print("==================================================================\n")
-    sys.stdout = saved
-    fout.close()
+    # sys.stdout = saved
