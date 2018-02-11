@@ -149,6 +149,23 @@ def vocabulary_filtering(vocabulary, lines):
     return filtered_lines, indices
 
 
+# Extract the lemmatized nouns and/or verbs from a set of documents - used in LDA modelling
+def extract_lemmatized_tweet(tokens, pos, use_verbs=True, use_nouns=True, use_all=False):
+    lemmatizer = WordNetLemmatizer()
+    clean_data = []
+    for index in range(len(tokens)):
+        if use_verbs and pos[index] is 'V':
+            clean_data.append(lemmatizer.lemmatize(tokens[index].lower(), 'v'))
+        if use_nouns and pos[index] is 'N':
+            clean_data.append(lemmatizer.lemmatize(tokens[index].lower()))
+        if use_all:
+            lemmatized_word = lemmatizer.lemmatize(tokens[index].lower(), 'v')
+            word = lemmatizer.lemmatize(lemmatized_word)
+            if pos[index] not in ['^', ',', '$', '&', '!', '#', '@']:
+                clean_data.append(word)
+    return clean_data
+
+
 def ulterior_token_clean(tweets_tokens, vocab_filename, filtered_tokens_filename):
     if not os.path.exists(filtered_tokens_filename):
         lemmatizer = WordNetLemmatizer()
@@ -338,14 +355,3 @@ def get_clean_dl_data(train_filename, dev_filename, test_filename, word_list):
     return clean_train_tweets, train_indices, train_labels, \
         clean_dev_tweets, dev_indices, dev_labels, \
         clean_test_tweets, test_indices, test_labels, len(vocabulary)
-
-
-# Method to print the features used
-# @feature_options - list of True/False values; specifies which set of features is active
-# @feature_names - list of names for each feature set
-def print_features(feature_options, feature_names):
-    print("\n=========================    FEATURES    =========================\n")
-    for name, value in zip(feature_names, feature_options):
-        line_new = '{:>30}  {:>10}'.format(name, value)
-        print(line_new)
-    print("\n==================================================================\n")

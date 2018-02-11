@@ -1,4 +1,4 @@
-import emoji, re, string, time, os, sys
+import emoji, re, string, time, os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from nltk import PorterStemmer, ngrams
 from nltk.stem.wordnet import WordNetLemmatizer
@@ -173,32 +173,39 @@ def get_sentiment_features(tweet, tweet_tokens, tweet_pos, emoji_sent_dict, subj
 # Get the necessary data to perform topic modelling
 # including clean noun and verb phrases (lemmatized, lower-case)
 # Tokenization and POS labelled done as advertised by CMU
-def get_topic_data(tokens_tags, pos_tags, path, filename, use_nouns=True, use_verbs=True,
-                   num_of_topics=8, passes=25, verbose=True):
+def build_lda_model(tokens_tags, pos_tags, use_nouns=True, use_verbs=True, use_all=False,
+                    num_of_topics=8, passes=25, verbose=True):
+    path = os.getcwd()[:os.getcwd().rfind('/')]
     topics_filename = str(num_of_topics) + "topics"
-    if use_nouns and use_verbs:
-        topics_filename += "_n+v_" + filename
-    else:
-        topics_filename += "_just_n_" + filename
-    lda_filename = path + "/models/lda_" + topics_filename + ".model"
-    corpus_filename = path + "res/corpus_" + topics_filename + ".mm"
+    if use_nouns:
+        topics_filename += "_nouns"
+    if use_verbs:
+        topics_filename += "_verbs"
+    if use_all:
+        topics_filename += "_all"
+
+    # Set the LDA, Dictionary and Corpus filenames
+    lda_filename = path + "/models/topic_models/lda_" + topics_filename + ".model"
+    dict_filename = path + "/res/topic_data/dict/dict_" + topics_filename + ".dict"
+    corpus_filename = path + "/res/topic_data/corpus/corpus_" + topics_filename + ".mm"
+
+    # Build a topic model if it wasn't created yet
     if not os.path.exists(lda_filename):
-        lemmatizer = WordNetLemmatizer()
+        # Extract the lemmatized documents
         docs = []
         for index in range(len(tokens_tags)):
             tokens = tokens_tags[index].split()
             pos = pos_tags[index].split()
-            clean_data = []
-            for index2 in range(len(tokens)):
-                if use_verbs and pos[index2] is 'V':
-                    clean_data.append(lemmatizer.lemmatize(tokens[index2].lower(), 'v'))
-                if use_nouns and pos[index2] is 'N':
-                    clean_data.append(lemmatizer.lemmatize(tokens[index2].lower()))
-            docs.append(clean_data)
-        dictionary = Dictionary(docs)
-        corpus = [dictionary.doc2bow(d) for d in docs]
+            docs.append(data_proc.extract_lemmatized_tweet(tokens, pos, use_verbs, use_nouns, use_all))
 
-        # Save the bow corpus
+        # Compute the dictionary and save it
+        dictionary = Dictionary(docs)
+        dictionary.filter_extremes(keep_n=60000)
+        dictionary.compactify()
+        Dictionary.save(dictionary, dict_filename)
+
+        # Compute the bow corpus and save it
+        corpus = [dictionary.doc2bow(d) for d in docs]
         MmCorpus.serialize(corpus_filename, corpus)
 
         if verbose:
@@ -209,61 +216,95 @@ def get_topic_data(tokens_tags, pos_tags, path, filename, use_nouns=True, use_ve
             print("\nCorpus in BoW form:")
             print(corpus)
 
-        print("\nStarted building LDA model...")
+        # Start training an LDA Model
         start = time.time()
-        ldamodel = LdaModel(corpus=corpus, num_topics=num_of_topics, passes=passes, id2word=dictionary)
-        ldamodel.save(lda_filename)
+        print("\nBuilding the LDA topic model...")
+        lda_model = LdaModel(corpus=corpus, num_topics=num_of_topics, passes=passes, id2word=dictionary)
+        lda_model.save(lda_filename)
         end = time.time()
         print("Completion time for building LDA model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
+
         if verbose:
             print("\nList of words associated with each topic:")
-            ldatopics = ldamodel.show_topics(formatted=False)
-            ldatopics_list = [[word for word, prob in topic] for topicid, topic in ldatopics]
-            print([t for t in ldatopics_list])
-    # Load the previously saved LDA model
-    ldamodel = LdaModel.load(lda_filename)
+            lda_topics = lda_model.show_topics(formatted=False)
+            lda_topics_list = [[word for word, prob in topic] for topic_id, topic in lda_topics]
+            print([t for t in lda_topics_list])
+
+    # Load the previously saved dictionary
+    dictionary = Dictionary.load(dict_filename)
+
     # Load the previously saved corpus
     mm_corpus = MmCorpus(corpus_filename)
+
+    # Load the previously saved LDA model
+    lda_model = LdaModel.load(lda_filename)
+
+    # Print the top 10 words for each topic
+    for topic_id in range(num_of_topics):
+        print("\nTop 10 words for topic ", topic_id)
+        print([dictionary[word_id] for (word_id, prob) in lda_model.get_topic_terms(topic_id, topn=10)])
+
     index = 0
     if verbose:
-        for doc_topics, word_topics, word_phis in ldamodel.get_document_topics(mm_corpus, per_word_topics=True):
-            print("Index ", index)
+        for doc_topics, word_topics, word_phis in lda_model.get_document_topics(mm_corpus, per_word_topics=True):
+            print('Index ', index)
             print('Document topics:', doc_topics)
             print('Word topics:', word_topics)
             print('Phi values:', word_phis)
             print('-------------- \n')
             index += 1
-    return mm_corpus, ldamodel
+    return dictionary, mm_corpus, lda_model
 
 
-# Use the distribution of topics in a tweet as features
-def get_topic_features(corpus, ldamodel):
+# Predict the topic of an unseen testing example based on the LDA model built on the train set
+def get_topic_features_for_unseen_tweet(dictionary, lda_model, tokens_tags, pos_tags,
+                                        use_nouns=True, use_verbs=True, use_all=False):
+    # Extract the lemmatized documents
+    docs = data_proc.extract_lemmatized_tweet(tokens_tags, pos_tags, use_verbs, use_nouns, use_all)
+    tweet_bow = dictionary.doc2bow(docs)
+    topic_prediction = lda_model[tweet_bow]
     topic_features = {}
-    doc_topics, word_topic, phi_values = ldamodel.get_document_topics(corpus, per_word_topics=True)
+    # print("\nTopic prediction\n")
+    # for t in topic_prediction:
+    #    print(t)
+    # print("\nTopics:")
+    if any(isinstance(topic_list, type([])) for topic_list in topic_prediction):
+        topic_prediction = topic_prediction[0]
+    for topic in topic_prediction:
+        topic_features['topic ' + str(topic[0])] = topic[1]
+        # print(topic[0], ' -- ', topic[1])
+    return topic_features
+
+
+# Use the distributions of topics in a tweet as features
+def get_topic_features(corpus, ldamodel, index):
+    topic_features = {}
+    doc_topics, word_topic, phi_values = ldamodel.get_document_topics(corpus, per_word_topics=True)[index]
     for topic in doc_topics:
         topic_features['topic ' + str(topic[0])] = topic[1]
     return topic_features
 
 
 # Collect all features
-def get_feature_set(tweets, path, filename, pragmatic=False, pos_unigrams=True, pos_bigrams=False,
-                    lexical=False, ngram_list=[1], sentiment=False, topic=False):
+def get_feature_set(filename, tweets_tokens, tweets_pos, filtered_tokens, filtered_pos,
+                    pragmatic=False, pos_unigrams=False, pos_bigrams=False,
+                    lexical=False, ngram_list=[1], sentiment=False, topic=True):
     features = []
-    filename = filename.split("/")[len(filename.split("/")) - 1]
-
-    # Get the pos tags and the tokens of the tweets
-    tweets_tokens, tweets_pos = data_proc.get_tags_for_each_tweet(path, filename)
-
     if sentiment:
         # Emoji lexicon - underlying sentiment (pos, neutral, neg)
-        emoji_dict = data_proc.build_emoji_sentiment_dictionary(path)
+        emoji_dict = data_proc.build_emoji_sentiment_dictionary()
         # Obtain subjectivity features from the MPQA lexicon and build the subjectivity lexicon
-        subj_dict = data_proc.get_subj_lexicon(path)
+        subj_dict = data_proc.get_subj_lexicon()
 
     if topic:
-        corpus, ldamodel = get_topic_data(tweets_tokens, tweets_pos, path, filename[:-4], verbose=False)
+        use_nouns = True
+        use_verbs = True
+        use_all = False
+        dictionary, corpus, ldamodel = build_lda_model(tweets_tokens, tweets_pos,
+                                                       use_nouns=use_nouns, use_verbs=use_verbs, use_all=use_all,
+                                                       num_of_topics=6, passes=20, verbose=False)
 
-    for index in range(0, len(tweets)):
+    for index in range(len(tweets_tokens)):
         # print("Tweet %d" % index)
         tokens_this_tweet = tweets_tokens[index].split()
         pos_this_tweet = tweets_pos[index].split()
@@ -285,7 +326,16 @@ def get_feature_set(tweets, path, filename, pragmatic=False, pos_unigrams=True, 
             sentiment_features = get_sentiment_features(tweets_tokens[index], tokens_this_tweet,
                                                         pos_this_tweet, emoji_dict, subj_dict)
         if topic:
-            topic_features = get_topic_features(corpus[index], ldamodel)
+            if 'test' in filename:
+                topic_features = get_topic_features_for_unseen_tweet(dictionary, ldamodel,
+                                                                     tokens_this_tweet, pos_this_tweet,
+                                                                     use_nouns=use_nouns, use_verbs=use_verbs, use_all=use_all)
+            else:
+                topic_features = get_topic_features(corpus, ldamodel, index)
+
+        # Append all extracted features of this tweet to the final list of all features
         features.append({**pragmatic_features, **pos_unigrams_features, **pos_bigrams_features,
                          **words_ngrams, **sentiment_features, **topic_features})
+    for f in features:
+        print(f)
     return features

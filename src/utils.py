@@ -1,11 +1,14 @@
+import sys, datetime
+import numpy as np
+import classifiers
 from keras.models import model_from_json
 from sklearn import metrics
-import keras.backend as K
-import numpy as np
-from pandas import read_csv
-from keras.preprocessing.text import Tokenizer
-from collections import Counter
+from sklearn.feature_extraction import DictVectorizer
 import matplotlib.pyplot as plt
+from keras.preprocessing.text import Tokenizer
+import keras.backend as K
+from collections import  Counter
+from pandas import read_csv
 
 
 def load_file(filename):
@@ -110,6 +113,45 @@ def get_classes_ratio(labels):
     return ratio
 
 
+def get_classes_ratio_as_dict(labels):
+    ratio = Counter(labels)
+    ratio_dict = {}
+    ratio_dict[0] = float(max(ratio[0], ratio[1]) / ratio[0])
+    ratio_dict[1] = float(max(ratio[0], ratio[1]) / ratio[1])
+    print('Class ratio: ', ratio_dict)
+    return ratio_dict
+
+
+def extract_features_from_dict(train_features, test_features):
+    # Transform the list of feature-value mappings to a vector
+    vector = DictVectorizer(sparse=False)
+    # Learn a list of feature name -> indices mappings and transform X_train_features
+    x_train_features = vector.fit_transform(train_features).tolist()
+    # Just transform the X_test_features, based on the list fitted on X_train_features
+    # Disadvantage: named features not encountered during fit_transform will be silently ignored.
+    x_test_features = vector.transform(test_features).tolist()
+    print('Size of the feature sets: train =  ', len(x_train_features[0]), ', test = ', len(x_test_features[0]))
+    return x_train_features, x_test_features
+
+
+def feature_scaling(features):
+    scaled_features = []
+    max_per_col = []
+    for i in range(len(features[0])):
+        maxx = max([abs(f[i]) for f in features])
+        if maxx == 0.0:
+            maxx = 1.0
+        max_per_col.append(maxx)
+    for f in features:
+        scaled_features.append([float(f[i]) / float(max_per_col[i]) for i in range(len(f))])
+    return scaled_features
+
+
+def run_models(train_features, train_labels, test_features, test_labels, class_ratio):
+    classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
+    classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
+
+
 def encode_text_as_matrix(train_tweets, test_tweets, mode):
     # Create the tokenizer
     tokenizer = Tokenizer(num_words=None, filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n',
@@ -181,15 +223,25 @@ def print_statistics(y, y_pred):
 
 
 def plot_training_statistics(history, plot_name):
+    # Plot Accuracy
     plt.figure()
     plt.plot(history.history['acc'], 'k-', label='Training Accuracy')
-    plt.plot(history.history['loss'], 'r--', label='Training Loss')
-    plt.title('Model Accuracy and Loss')
-    plt.ylabel('Value')
+    plt.plot(history.history['val_acc'], 'r--', label='Validation Accuracy')
+    plt.title('Training vs Validation Accuracy')
+    plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
-    plt.savefig(plot_name)
-    # plt.show()
+    plt.savefig(plot_name + "_model_acc.png")
+
+    # Plot Loss
+    plt.figure()
+    plt.plot(history.history['loss'], 'k-', label='Training Loss')
+    plt.plot(history.history['val_loss'], 'r--', label='Validation Loss')
+    plt.title('Training vs Validation Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(loc='center right')
+    plt.savefig(plot_name + "_model_loss.png")
 
 
 # This is used to plot the coefficients that have the greatest impact on a classifier like SVM
@@ -205,5 +257,42 @@ def plot_coefficients(classifier, feature_names, path, top_features=20):
     plt.xticks(np.arange(0, 2 * top_features), feature_names[top_coefficients], rotation=30, ha='right')
     plt.ylabel("Coefficient Value")
     plt.title("Visualising Top Features")
-    plt.savefig(path + "/plots/feature_stats_sing_tweet_tknzr.png")
-    plt.show()
+    plt.savefig(path + "/plots/feature_stats.png")
+    # plt.show()
+
+
+# Method to print the features used
+# feature_options - list of True/False values; specifies which set of features is active
+# feature_names - list of names for each feature set
+def print_features(feature_options, feature_names):
+    print("\n=========================    FEATURES    =========================\n")
+    for name, value in zip(feature_names, feature_options):
+        line_new = '{:>30}  {:>10}'.format(name, value)
+        print(line_new)
+    print("\n==================================================================\n")
+
+
+# Method to print the header of the currently running model
+def print_model_title(name):
+    print("\n==================================================================")
+    print('{:>20}'.format(name))
+    print("==================================================================\n")
+
+
+class writer:
+    def __init__(self, *writers):
+        self.writers = writers
+
+    def write(self, text):
+        for w in self.writers:
+            w.write(text)
+
+    def flush(self):
+        pass
+
+
+def initialize_writer(to_write_filename):
+    saved = sys.stdout
+    fout = open(to_write_filename, 'wt')
+    sys.stdout = writer(sys.stdout, fout)
+    print("Current date and time: %s\n" % str(datetime.datetime.now()))
