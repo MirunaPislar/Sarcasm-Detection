@@ -4,9 +4,6 @@ from nltk import ngrams, pos_tag
 from collections import Counter
 import numpy as np
 import data_processing as data_proc
-import sys, os
-
-sys.stdout = open(os.getcwd()[:os.getcwd().rfind('/')] + '/stats/output.txt', 'wt')
 
 
 def count_apparitions(tokens, list_to_count_from):
@@ -17,6 +14,7 @@ def count_apparitions(tokens, list_to_count_from):
 
 
 def get_features1(tweets, subj_dict):
+    print("Getting features type 1...")
     features = []
     tknzr = TweetTokenizer(preserve_case=False, reduce_len=True, strip_handles=True)
     lemmatizer = WordNetLemmatizer()
@@ -27,29 +25,41 @@ def get_features1(tweets, subj_dict):
         pos = pos_tag(tokens)
         pos = [p for p in pos if 'VB' in p[1] or 'NN' in p[1]]
         for p in pos:
-            if 'VB' in p[1]:
-                stemmed = lemmatizer.lemmatize(p[0], 'v')
-                if stemmed in subj_dict:
-                    if subj_dict[stemmed][2] == 'positive':
+            stemmed = lemmatizer.lemmatize(p[0], 'v')
+            stemmed = lemmatizer.lemmatize(stemmed)
+            if 'VB' in p[1] and stemmed in subj_dict:
+                if 'verb' in subj_dict[stemmed]:
+                    if 'positive' in subj_dict[stemmed]['verb']:
                         feature_list[0] += 1.0
-                    if subj_dict[stemmed][2] == 'negative':
+                    if 'negative' in subj_dict[stemmed]['verb']:
                         feature_list[1] += 1.0
-            if 'NN' in p[1]:
-                stemmed = lemmatizer.lemmatize(p[0])
-                if stemmed in subj_dict:
-                    if subj_dict[stemmed][2] == 'positive':
+                elif 'anypos' in subj_dict[stemmed]:
+                    if 'positive' in subj_dict[stemmed]['anypos']:
+                        feature_list[0] += 1.0
+                    if 'negative' in subj_dict[stemmed]['anypos']:
+                        feature_list[1] += 1.0
+            if 'NN' in p[1] and stemmed in subj_dict:
+                if 'noun' in subj_dict[stemmed]:
+                    if 'positive' in subj_dict[stemmed]['noun']:
                         feature_list[2] += 1.0
-                    if subj_dict[stemmed][2] == 'negative':
+                    if 'negative' in subj_dict[stemmed]['noun']:
+                        feature_list[3] += 1.0
+                elif 'anypos' in subj_dict[stemmed]:
+                    if 'positive' in subj_dict[stemmed]['anypos']:
+                        feature_list[2] += 1.0
+                    if 'negative' in subj_dict[stemmed]['anypos']:
                         feature_list[3] += 1.0
         # Derive features from punctuation
         feature_list[4] += count_apparitions(tokens, data_proc.punctuation)
         # Take the number of strong negations as a feature
         feature_list[5] += count_apparitions(tokens, data_proc.strong_negations)
         features.append(feature_list)
+    print("Done.")
     return features
 
 
 def get_features2(tweets, subj_dict):
+    print("Getting features type 2...")
     features = []
     tknzr = TweetTokenizer(preserve_case=True, reduce_len=False, strip_handles=False)
     lemmatizer = WordNetLemmatizer()
@@ -58,17 +68,20 @@ def get_features2(tweets, subj_dict):
         tokens = tknzr.tokenize(tweet)
         # Take the number of positive and negative words as features
         for word in tokens:
-            stemmed = lemmatizer.lemmatize(word)
+            stemmed = lemmatizer.lemmatize(word, 'v')
+            stemmed = lemmatizer.lemmatize(stemmed)
             if stemmed in subj_dict:
-                if subj_dict[stemmed][0] == 'strongsubj':
+                dictlist = []
+                for word in subj_dict[stemmed]:
+                    dictlist.extend(subj_dict[stemmed][word])
+                if 'strongsubj' in dictlist:
                     value = 1.0
                 else:
                     value = 0.5
-                if subj_dict[stemmed][2] == 'positive':
+                if 'positive' in dictlist:
                     feature_list[0] += value
-                else:
-                    if subj_dict[stemmed][2] == 'negative':
-                        feature_list[1] += value
+                elif 'negative' in dictlist:
+                    feature_list[1] += value
         # Take the report of positives to negatives as a feature
         if feature_list[0] != 0.0 and feature_list[1] != 0.0:
             feature_list[2] = feature_list[0] / feature_list[1]
@@ -79,10 +92,12 @@ def get_features2(tweets, subj_dict):
         # Take strong affirmatives as a feature
         feature_list[4] += count_apparitions(tokens, data_proc.strong_affirmatives)
         features.append(feature_list)
+    print("Done.")
     return features
 
 
 def get_features3(tweets, subj_dict):
+    print("Getting features type 3...")
     features = []
     tknzr = TweetTokenizer(preserve_case=False, reduce_len=True, strip_handles=False)
     lemmatizer = WordNetLemmatizer()
@@ -93,30 +108,46 @@ def get_features3(tweets, subj_dict):
         pos = pos_tag(tokens)
         pos = [p for p in pos if 'VB' in p[1] or 'NN' in p[1]]
         for p in pos:
-            if 'VB' in p[1]:
-                stemmed = lemmatizer.lemmatize(p[0], 'v')
-                if stemmed in subj_dict:
-                    if subj_dict[stemmed][0] == 'strongsubj':
+            stemmed = lemmatizer.lemmatize(p[0], 'v')
+            stemmed = lemmatizer.lemmatize(stemmed)
+            if 'VB' in p[1] and stemmed in subj_dict:
+                if 'verb' in subj_dict[stemmed]:
+                    if 'strongsubj' in subj_dict[stemmed]['verb']:
                         value = 1.0
                     else:
                         value = 0.5
-                    if subj_dict[stemmed][2] == 'positive':
-                            feature_list[0] += value
-                    else:
-                        if subj_dict[stemmed][2] == 'negative':
-                            feature_list[1] += value
-            if 'NN' in p[1]:
-                stemmed = lemmatizer.lemmatize(p[0])
-                if stemmed in subj_dict:
-                    if subj_dict[stemmed][0] == 'strongsubj':
+                    if 'positive' in subj_dict[stemmed]['verb']:
+                        feature_list[0] += value
+                    elif 'negative' in subj_dict[stemmed]['verb']:
+                        feature_list[1] += value
+                elif 'anypos' in subj_dict[stemmed]:
+                    if 'strongsubj' in subj_dict[stemmed]['anypos']:
                         value = 1.0
                     else:
                         value = 0.5
-                    if subj_dict[stemmed][2] == 'positive':
+                    if 'positive' in subj_dict[stemmed]['anypos']:
+                        feature_list[0] += value
+                    elif 'negative' in subj_dict[stemmed]['anypos']:
+                        feature_list[1] += value
+            if 'NN' in p[1] and stemmed in subj_dict:
+                if 'noun' in subj_dict[stemmed]:
+                    if 'strongsubj' in subj_dict[stemmed]['noun']:
+                        value = 1.0
+                    else:
+                        value = 0.5
+                    if 'positive' in subj_dict[stemmed]['noun']:
                         feature_list[2] += value
+                    elif 'negative' in subj_dict[stemmed]['noun']:
+                        feature_list[3] += value
+                elif 'anypos' in subj_dict[stemmed]:
+                    if 'strongsubj' in subj_dict[stemmed]['anypos']:
+                        value = 1.0
                     else:
-                        if subj_dict[stemmed][2] == 'negative':
-                            feature_list[3] += value
+                        value = 0.5
+                    if 'positive' in subj_dict[stemmed]['anypos']:
+                        feature_list[2] += value
+                    elif 'negative' in subj_dict[stemmed]['anypos']:
+                        feature_list[3] += value
         # Take the report of positives to negatives as a feature
         if (feature_list[0] + feature_list[2]) != 0.0 and (feature_list[1] + feature_list[3]) != 0.0:
             feature_list[4] = (feature_list[0] + feature_list[2]) / (feature_list[1] + feature_list[3])
@@ -127,6 +158,7 @@ def get_features3(tweets, subj_dict):
         # Take strong affirmatives as a feature
         feature_list[7] += count_apparitions(tokens, data_proc.strong_affirmatives)
         features.append(feature_list)
+    print("Done.")
     return features
 
 
@@ -199,6 +231,7 @@ def get_ngram_features_from_map(tweets, ngram_map, n):
 
 
 def get_ngram_features(tweets, n):
+    print("Getting n-gram features...")
     unigrams = []
     bigrams = []
     trigrams = []
@@ -210,4 +243,5 @@ def get_ngram_features(tweets, n):
         unigrams, bigrams, trigrams = get_ngrams(tweets, n)
     ngram_map = create_ngram_mapping(unigrams, bigrams, trigrams)
     features = get_ngram_features_from_map(tweets, ngram_map, n)
+    print("Done.")
     return ngram_map, features

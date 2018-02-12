@@ -156,9 +156,9 @@ def build_model(train_tokens, filtered_train_tokens, train_pos, filtered_train_p
     elif feature_set == 'topic':
         features_names = ['topics_no', 'passes', 'use_nouns', 'use_verbs', 'use_all']
         activation_list = \
-            [[4, 15, True, True, False], [6, 20, True, True, False], [6, 20, False, False, True]]
-            # [8, 20, True, True, False], [8, 20, False, False, True], [10, 30, False, False, True],
-            # [15, 30, False, False, True], [20, 40, False, False, True]]
+            [[4, 15, True, True, False], [6, 20, True, True, False], [6, 20, False, False, True],
+            [8, 20, True, True, False], [8, 20, False, False, True], [10, 30, False, False, True],
+            [15, 30, False, False, True], [20, 40, False, False, True]]
         feature_function = extract_feature.build_lda_model
 
     # Perform the feature analysis - extract the active features and run the classifiers to gather conclusive results
@@ -169,7 +169,7 @@ def build_model(train_tokens, filtered_train_tokens, train_pos, filtered_train_p
 
 if __name__ == "__main__":
     path = os.getcwd()[:os.getcwd().rfind('/')]
-    to_write_filename = path + '/stats/topic_analysis.txt'
+    to_write_filename = path + '/stats/topic_analysis2.txt'
     utils.initialize_writer(to_write_filename)
 
     train_file = "train.txt"
