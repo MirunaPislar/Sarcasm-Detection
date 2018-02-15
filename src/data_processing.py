@@ -1,29 +1,10 @@
-import re, os
+import re, os, itertools, string
 from collections import Counter
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import words
+import numpy as np
 import utils
-
-
-strong_affirmatives = ["yes", "yeah", "always", "all", "any", "every", "everybody", "everywhere", "ever"]
-
-strong_negations = ["no", "not", "never", "none" "n't", "nothing", "neither", "nobody", "nowhere"]
-
-punctuation = ["?", "!", "..."]
-
-interjections = ["oh", "hey", "wow", "aha", "aham", "aw", "bam", "blah", "bingo", "boo", "bravo",
-                 "cheers", "congratulations", "congrats", "duh", "eh", "gee", "gosh", "hey", "hmm",
-                 "huh", "hurray", "oh", "oh dear", "oh my", "oh well", "oops", "ouch", "ow", "phew",
-                 "shh", "uh", "uh-huh", "mhm", "ugh", "well", "wow", "woah", "yeah", "yep", "yikes", "yo"]
-
-intensifiers = ["amazingly", "astoundingly", "awful", "bare", "bloody", "crazy", "dreadfully",
-                "colossally", "especially", "exceptionally", "excessively", "extremely",
-                "extraordinarily", "fantastically", "frightfully", "fucking", "fully", "hella",
-                "holy", "incredibly", "insanely", "literally", "mightily", "moderately", "most",
-                "outrageously", "phenomenally", "precious", "quite", "radically", "rather",
-                "really", "remarkably", "right", "sick", "strikingly", "super", "supremely",
-                "surprisingly", "terribly", "terrifically", "too", "totally", "uncommonly",
-                "unusually", "veritable", "very", "wicked"]
+from vocab_helpers import contractions, implicit_emoticons, slang, wikipedia_emoticons
 
 path = os.getcwd()[:os.getcwd().rfind('/')]
 
@@ -54,7 +35,7 @@ def get_subj_lexicon():
 
 
 def get_emoji_dictionary():
-    filename = path + "/res/emoji_list.txt"
+    filename = path + "/res/emoji/emoji_list.txt"
     emojis = utils.load_file(filename).split("\n")
     emoji_dict = {}
     for line in emojis:
@@ -66,9 +47,9 @@ def get_emoji_dictionary():
 
 
 def build_emoji_sentiment_dictionary():
-    new_emoji_sentiment_filename = path + "/res/emoji_sentiment_dictionary.txt"
+    new_emoji_sentiment_filename = path + "/res/emoji/emoji_sentiment_dictionary.txt"
     if not os.path.exists(new_emoji_sentiment_filename):
-        filename = path + "/res/emoji_sentiment_raw.txt"
+        filename = path + "/res/emoji/emoji_sentiment_raw.txt"
         emojis = utils.load_file(filename).split("\n")[1:]
         lines = []
         for line in emojis:
@@ -89,6 +70,170 @@ def build_emoji_sentiment_dictionary():
         # Get emoji characteristics as a list [negative, neutral, positive, description]
         emoji_sentiment_dict[line[0]] = [line[1], line[2], line[3], line[4]]
     return emoji_sentiment_dict
+
+
+# Replace a contraction (comming from possessives, verbs, emphasis or just bad language) by its longer form
+def replace_contracted_form(contracted_word, pos, dictionary):
+    long_form = []
+    if "'" in contracted_word:
+        # print("Found apostrophe in word: ", contracted_word, ' with pos: ', pos)
+        split_words = contracted_word.split("'")
+        check_if_in_dict = False
+        # If the contraction is a nominal + verbal or a proper noun + verbal
+        if pos is 'L' or pos is 'M':
+            long_form.append(split_words[0])
+            if split_words[1].lower() in contractions:
+                long_form.extend(contractions[split_words[1].lower()].split())
+        # If the contraction is a whole verb (like let's or isn't)
+        elif pos in ['V', 'Y', 'O'] and contracted_word.lower() in contractions:
+            long_form.extend(contractions[contracted_word.lower()].split())
+        # If the contraction is proper noun with possessive or a nominal with a possessive or even a (proper) noun
+        elif pos in ['S', 'Z', 'D', 'N', '^']:
+            if contracted_word.lower() in contractions:
+                long_form.extend(contractions[contracted_word.lower()].split())
+            elif split_words[1].lower() == 's':
+                long_form.append(split_words[0])
+            elif contracted_word.lower() in contractions:
+                long_form.extend(contractions[contracted_word.lower()].split())
+            else:
+                check_if_in_dict = True
+        # Can skip ' which are just punctuation marks (usually used to emphasize or quote something)
+        elif pos is ',':
+            # print("Punctuation, nothing to replace.", split_words[0], ' -- ', split_words[1])
+            return []
+        # Never replace contractions in emojis or emoticons (will be translated later)
+        elif pos is 'E':
+            long_form.append(contracted_word)
+        else:
+            check_if_in_dict = True
+        if check_if_in_dict:
+            # Attempt to separate words which have been separated by ' by human error
+            clean0 = re.findall("[a-zA-Z]+", split_words[0])
+            clean1 = re.findall("[a-zA-Z]+", split_words[1])
+            if clean0 != [] and clean0[0].lower() in dictionary and clean1 != [] and clean1[0].lower() in dictionary:
+                # print("Cleaned to ", clean0, ', ', clean1)
+                long_form.extend([clean0[0], clean1[0]])
+            else:
+                # print("Word couldn't be de-contracted!")
+                long_form.append(contracted_word)
+        return long_form
+    else:
+        return long_form.append(contracted_word)
+
+
+# Cannot do lemmatization with NLTK without changing the case - which we don't want
+# So lemmatize but remember if upper case or startign with upper letter
+# This will be needed when performing CMU pos-tagging or when extracting pragmatic features
+def correct_spelling_but_preserve_case(lemmatizer, word):
+    corrected = lemmatizer.lemmatize(word.lower(), 'v')
+    corrected = lemmatizer.lemmatize(corrected)
+    if word.isupper():
+        return corrected.upper()
+    if word[0].isupper():
+        return corrected[0].upper() + corrected[1:]
+    return corrected
+
+
+# Reduce the length of the pattern (if repeating characters are found)
+def reduce_lengthening(word, dictionary):
+    if word.lower() in dictionary or word.isnumeric():
+        return word
+    # Pattern for repeating character sequences of length 2 or greater
+    pattern2 = re.compile(r"(.)\1{2,}")
+    # Pattern for repeating character sequences of length 1 or greater
+    pattern1 = re.compile(r"(.)\1{1,}")
+    # Word obtained from stripping repeating sequences of length 2
+    word2 = pattern2.sub(r"\1\1", word)
+    # Word obtained from stripping repeating sequences of length 1
+    word1 = pattern1.sub(r"\1", word)
+    # print("Reduced length from ", word, " w2 -- ", word2, " w1 -- ", word1)
+    if word1.lower() in dictionary:
+        return word1
+    else:
+        return word2
+
+
+# Translate emojis (or a group of emojis) into a list of descriptions
+def translate_emojis(word, emoji_dict):
+    description = []
+    emojis = list(word)
+    for emoji in emojis:
+        if emoji in emoji_dict.keys():
+            description.extend(emoji_dict[emoji][3].lower().split())
+    if description != []:
+        return description
+    else:
+        return word
+
+
+# TODO: Numerals - sarcasm heavily relies on them so find a way to extract meaning behind numbers
+# TODO: Asterisks - used either to emphasize an idea or to mask offending words (like b*tch or sh*t)
+# Attempt to clean each tweet and make it as grammatical as possible
+def grammatical_clean(tweets, pos_tags, word_file, filename):
+    if not os.path.exists(filename):
+        dictionary = utils.load_file(word_file).split()
+        emoji_dict = build_emoji_sentiment_dictionary()
+        lemmatizer = WordNetLemmatizer()
+        corrected_tweets = []
+        for tweet, pos_tag in zip(tweets, pos_tags):
+            corrected_tweet = []
+            # print("Tweet: ", tweet)
+            # print("POS: ", pos_tag)
+            for word, pos in zip(tweet.split(), pos_tag.split()):
+                t = word
+                # Remove unnecessary hyphens that just add noise (but not from composed words)
+                if t.startswith('-') or t.endswith('-'):
+                    t = re.sub('[-]', '', t)
+                # Translate emojis (not written with parenthesis, but with symbols)
+                emoji_translation = translate_emojis(t, emoji_dict)
+                if emoji_translation != t:
+                    corrected_tweet.extend(emoji_translation)
+                    continue
+                # Replace contractions with long-forms
+                if "'" in t:
+                    long_form = replace_contracted_form(t, pos, dictionary)
+                    corrected_tweet.extend(long_form)
+                    # print("Removed contracted form of ", t, " to ", long_form)
+                    continue
+                # Check if token contains repeating characters and if so, remove them
+                # Exclude removal of repeating punctuation, numerals, user mentions
+                if pos not in [',', '$', '~', '@'] and len(t) > 0:
+                    t = correct_spelling_but_preserve_case(lemmatizer, t)
+                    reduced = reduce_lengthening(t, dictionary)
+                    if reduced != t.lower:
+                        # print("Reduced length of word ", t, " to ", reduced)
+                        t = reduced
+                # Translate emoticons to their description
+                if t.lower() in wikipedia_emoticons:
+                    translated_emoticon = wikipedia_emoticons[t.lower()].split()
+                    # print("WIKI emoticon translated from  ", t, " to ", translated_emoticon)
+                    corrected_tweet.extend(translated_emoticon)
+                    continue
+                # Replace all slang (or twitter abbreviations) to explicit form
+                if t.lower() in slang.keys():
+                    slang_translation = slang[t.lower()]
+                    # print("Slang word replaced from ", t, " to ", slang_translation)
+                    corrected_tweet.extend(slang_translation.split())
+                    continue
+                if t != '':
+                    corrected_tweet.append(t)
+            corrected_tweets.append(corrected_tweet)
+        # Save the grammatical set to filename
+        lines = [' '.join(line) for line in corrected_tweets]
+        for dirty, corrected in zip(tweets, lines):
+            print(dirty)
+            print(corrected)
+            print()
+        # utils.save_file(lines, filename)
+        return corrected_tweets
+    # Load grammatical set from filename
+    corrected_tweets = [[word for word in line.split()] for line in utils.load_file(filename).split("\n")]
+    return corrected_tweets
+
+
+def get_stopwords_list():
+    stopwords = utils.load_file(path + "/res/stopwords.txt").split("\n")
+    return stopwords
 
 
 def build_vocabulary(vocab_filename, lines, minimum_occurrence=1):
@@ -166,6 +311,81 @@ def extract_lemmatized_tweet(tokens, pos, use_verbs=True, use_nouns=True, use_al
     return clean_data
 
 
+def ulterior_token_clean(tweets_tokens, vocab_filename, filtered_tokens_filename):
+    if not os.path.exists(filtered_tokens_filename):
+        lemmatizer = WordNetLemmatizer()
+        filtered_tweets_tokens = []
+        for tweet_tokens in tweets_tokens:
+            filtered_tweet_tokens = []
+            for token in tweet_tokens.split():
+                filtered_token = lemmatizer.lemmatize(filtered_token, 'v')
+                filtered_token = lemmatizer.lemmatize(token.lower())
+                filtered_tweet_tokens.append(filtered_token)
+            filtered_tweets_tokens.append(filtered_tweet_tokens)
+        vocab = build_vocabulary(vocab_filename, filtered_tweets_tokens, minimum_occurrence=5)
+        filtered_again = []
+        for tweet in filtered_tweets_tokens:
+            filtered_again_tweet = []
+            for word in tweet:
+                if word in vocab:
+                    filtered_again_tweet.append(word)
+                # else:
+                #    filtered_again_tweet.append('unk')
+            filtered_again.append(' '.join([f for f in filtered_again_tweet]))
+        utils.save_file(filtered_again, filtered_tokens_filename)
+    # Load the filtered tokens
+    filtered_tweets_tokens = utils.load_file(filtered_tokens_filename).split("\n")
+    return filtered_tweets_tokens
+
+
+def ulterior_pos_clean(tweets_pos_tags, filtered_pos_filename):
+    if not os.path.exists(filtered_pos_filename):
+        filtered_tweets_pos_tags = []
+        for tweet_pos_tag in tweets_pos_tags:
+            filtered_tweet = []
+            for pos_tag in tweet_pos_tag.split():
+                if pos_tag not in ['U', 'G', ',', '@', '~']:
+                    filtered_tweet.append(pos_tag)
+            filtered_tweets_pos_tags.append(' '.join([f for f in filtered_tweet]))
+        utils.save_file(filtered_tweets_pos_tags, filtered_pos_filename)
+    # Load the filtered tokens
+    filtered_tweets_pos_tags = utils.load_file(filtered_pos_filename).split("\n")
+    return filtered_tweets_pos_tags
+
+
+def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
+    if not os.path.exists(pos_filename):
+        tweets = utils.load_file(tweets_filename).split("\n")
+        tokens_lines = []
+        pos_lines = []
+        tokens_line = ""
+        pos_line = ""
+        for t in tweets:
+            if len(t) < 1:
+                tokens_lines.append(tokens_line[:])
+                pos_lines.append(pos_line[:])
+                tokens_line = ""
+                pos_line = ""
+            else:
+                t_split = t.split("\t")
+                tokens_line += t_split[0] + " "
+                pos_line += t_split[1] + " "
+        utils.save_file(tokens_lines, tokens_filename)
+        utils.save_file(pos_lines, pos_filename)
+    # Load the tokens and the pos for the tweets in this set
+    tokens = utils.load_file(tokens_filename).split("\n")
+    pos = utils.load_file(pos_filename).split("\n")
+    return tokens, pos
+
+
+# Split based on camel_case
+def camel_case_split(term):
+    term = re.sub(r'([0-9]+)', r' \1', term)
+    term = re.sub(r'(1st|2nd|3rd|4th|5th|6th|7th|8th|9th|0th)', r'\1 ', term)
+    splits = re.finditer('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)', term)
+    return [s.group(0) for s in splits]
+
+
 # Split a long, compound hash tag into its component tags. Given the character limit of tweets,
 # people would stick words together to save space so this is a useful tool.
 # Examples of hash splits from real data (train set) are in /stats/hashtag_splits.txt
@@ -195,16 +415,16 @@ def split_hashtag_to_words_all_possibilities(hashtag, word_dictionary):
     return all_possibilities
 
 
-def split_hashtag(hashtag, wordlist):
+def split_hashtag(hashtag, word_list):
     split_words = []
     if hashtag != hashtag.lower() and hashtag != hashtag.upper():
-        split_words = re.findall('[A-Z][^A-Z]*', hashtag)
+        split_words = camel_case_split(hashtag)
     else:
         j = 0
         while j <= len(hashtag):
             loc = j
             for i in range(j + 1, len(hashtag) + 1, 1):
-                if hashtag[j:i].lower() in wordlist:
+                if hashtag[j:i].lower() in word_list:
                     loc = i
             if loc == j:
                 j += 1
@@ -218,7 +438,6 @@ def split_hashtag(hashtag, wordlist):
 # Select the best possible hashtag split based on upper-case
 # or component words maximizing the length of the possible word split
 def split_hashtag_long_version(hashtag):
-    path = os.getcwd()[:os.getcwd().rfind('/')]
     word_file = path + "/res/word_list.txt"
     word_list = utils.load_file(word_file).split()
     word_dictionary = list(set(words.words()))
@@ -254,79 +473,75 @@ def split_hashtag_long_version(hashtag):
     return split_words
 
 
-def ulterior_token_clean(tweets_tokens, vocab_filename, filtered_tokens_filename):
-    if not os.path.exists(filtered_tokens_filename):
-        lemmatizer = WordNetLemmatizer()
-        filtered_tweets_tokens = []
-        for tweet_tokens in tweets_tokens:
-            filtered_tweet_tokens = []
-            for token in tweet_tokens.split():
-                filtered_token = lemmatizer.lemmatize(token.lower())
-                filtered_token = lemmatizer.lemmatize(filtered_token, 'v')
-                filtered_tweet_tokens.append(filtered_token)
-            filtered_tweets_tokens.append(filtered_tweet_tokens)
-        vocab = build_vocabulary(vocab_filename, filtered_tweets_tokens, minimum_occurrence=5)
-        filtered_again = []
-        for tweet in filtered_tweets_tokens:
-            filtered_again_tweet = []
-            for word in tweet:
-                if word in vocab:
-                    filtered_again_tweet.append(word)
-                else:
-                    filtered_again_tweet.append('unk')
-            filtered_again.append(' '.join([f for f in filtered_again_tweet]))
-        utils.save_file(filtered_again, filtered_tokens_filename)
-    # Load the filtered tokens
-    filtered_tweets_tokens = utils.load_file(filtered_tokens_filename).split("\n")
-    return filtered_tweets_tokens
+def split_hashtags2(hashtag, word_list):
+    print('Hashtag is ', hashtag)
+    # Get rid of the hashtag
+    if hashtag.startswith('#'):
+        term = hashtag[1:]
+    else:
+        term = hashtag
 
+    # If the hastag is already an existing word (a single word), return it
+    if word_list is not None and term.lower() in word_list:
+        return [term.lower()]
 
-def ulterior_pos_clean(tweets_pos_tags, vocab_filename, filtered_pos_filename):
-    if not os.path.exists(filtered_pos_filename):
-        vocab = build_vocabulary(vocab_filename, tweets_pos_tags, minimum_occurrence=50)
-        filtered_tweets_pos_tags = []
-        for tweet_pos_tag in tweets_pos_tags:
-            # filtered_tweets_pos_tags.append(' '.join([pos_tag for pos_tag in tweet_pos_tag if pos_tag in vocab]))
-            filtered_again_pos_tags = []
-            for pos in tweet_pos_tag:
-                if pos in vocab:
-                    filtered_again_pos_tags.append(pos)
-                else:
-                    filtered_again_pos_tags.append('unk')
-            filtered_tweets_pos_tags.append(' '.join([f for f in filtered_again_pos_tags]))
-        utils.save_file(filtered_tweets_pos_tags, filtered_pos_filename)
-    # Load the filtered tokens
-    filtered_tweets_pos_tags = utils.load_file(filtered_pos_filename).split("\n")
-    return filtered_tweets_pos_tags
+    # First, attempt splitting by CamelCase
+    if term[1:] != term[1:].lower() and term[1:] != term[1:].upper():
+        splits = camel_case_split(term)
+    elif '#' in term:
+        splits = term.split("#")
+    else:
+        # Second, build possible splits and choose the best split by assigning
+        # a "score" to each possible split, based on the frequency with which a word is occuring
+        penalty = -69971
+        max_coverage = penalty
+        max_splits = 6
+        n_splits = 0
+        term = re.sub(r'([0-9]+)', r' \1', term)
+        term = re.sub(r'(1st|2nd|3rd|4th|5th|6th|7th|8th|9th|0th)', r'\1 ', term)
+        term = re.sub(r'([A-Z][^A-Z ]+)', r' \1', term.strip())
+        term = re.sub(r'([A-Z]{2,})+', r' \1', term)
+        splits = term.strip().split(' ')
+        if len(splits) < 3:
+            # Splitting lower case and uppercase hashtags in up to 5 words
+            chars = [c for c in term.lower()]
+            found_all_words = False
 
+            while n_splits < max_splits and not found_all_words:
+                for index in itertools.combinations(range(0, len(chars)), n_splits):
+                    output = np.split(chars, index)
+                    line = [''.join(o) for o in output]
+                    score = 0.0
+                    for word in line:
+                        stripped = word.strip()
+                        if stripped in word_list:
+                            score += int(word_list.get(stripped))
+                        else:
+                            if stripped.isnumeric():  # not stripped.isalpha():
+                                score += 0.0
+                            else:
+                                score += penalty
+                    score = score / float(len(line))
+                    if score > max_coverage:
+                        splits = line
+                        max_coverage = score
+                        line_is_valid_word = [word.strip() in word_list if not word.isnumeric() else True for word in
+                                              line]
+                        if all(line_is_valid_word):
+                            found_all_words = True
+                            # print(line, score, line_is_valid_word)
+                n_splits = n_splits + 1
 
-def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
-    if not os.path.exists(pos_filename):
-        tweets = utils.load_file(tweets_filename).split("\n")
-        tokens_lines = []
-        pos_lines = []
-        tokens_line = ""
-        pos_line = ""
-        for t in tweets:
-            if len(t) < 1:
-                tokens_lines.append(tokens_line[:])
-                pos_lines.append(pos_line[:])
-                tokens_line = ""
-                pos_line = ""
-            else:
-                t_split = t.split("\t")
-                tokens_line += t_split[0] + " "
-                pos_line += t_split[1] + " "
-        utils.save_file(tokens_lines, tokens_filename)
-        utils.save_file(pos_lines, pos_filename)
-    # Load the tokens and the pos for the tweets in this set
-    tokens = utils.load_file(tokens_filename).split("\n")
-    pos = utils.load_file(pos_filename).split("\n")
-    return tokens, pos
+    # Used for debugging
+    with open(path + '/res/hashtags_dump.txt', 'a') as f:
+        if term != '' and len(splits) > 0:
+            f.write("Hashtag: %s split to %s" % (hashtag, ' '.join([split for split in splits])))
+    print("Split to: ", splits)
+    return splits
 
 
 # Initial tweet cleaning - useful to filter data before tokenization
-def clean_tweet(tweet, word_list):
+def clean_tweet(tweet, word_list, split_hashtag_method):
     # Add white space before every punctuation sign so that we can split around it and keep it
     tweet = re.sub('([!?*&%"~`^+{}])', r' \1 ', tweet)
     tweet = re.sub('\s{2,}', ' ', tweet)
@@ -340,24 +555,24 @@ def clean_tweet(tweet, word_list):
         if word.startswith('http'):                     # do not include URLs
             continue
         if word.startswith('#'):                        # split hash tag
-            word = split_hashtag(word[1:], word_list)
+            word = split_hashtag_method(word[1:], word_list)
             valid_tokens.extend(word)
             continue
         valid_tokens.append(word)
     return ' '.join(valid_tokens)
 
 
-def process_tweets(data, word_list):
-    tweets = []
-    for tweet in data:
-        clean_tw = clean_tweet(tweet, word_list)
-        tweets.append(clean_tw)
-    return tweets
+def process_tweets(tweets, word_list, split_hashtag_method):
+    clean_tweets = []
+    for tweet in tweets:
+        clean_tw = clean_tweet(tweet, word_list, split_hashtag_method)
+        clean_tweets.append(clean_tw)
+    return clean_tweets
 
 
 def process_set(dataset_filename, vocab_filename, word_list):
     data, labels = utils.load_data_panda(dataset_filename)
-    tweets = process_tweets(data, word_list)
+    tweets = process_tweets(data, word_list, split_hashtag)
     vocabulary = build_vocabulary(tweets, vocab_filename, minimum_occurrence=10)
     filtered_tweets = []
     for tweet in tweets:
@@ -365,11 +580,13 @@ def process_set(dataset_filename, vocab_filename, word_list):
     return filtered_tweets, labels
 
 
-def initial_clean(tweets, clean_filename, word_file):
+def initial_clean(tweets, clean_filename, word_file, word_file_is_dict=False, split_hashtag_method=split_hashtag):
     if not os.path.exists(clean_filename):
-        word_file = path + "/res/" + word_file
-        word_list = utils.load_file(word_file).split()
-        filtered_tweets = process_tweets(tweets, word_list=word_list)
+        if word_file_is_dict:
+            word_list = utils.load_dictionary(path + "/res/" + word_file)
+        else:
+            word_list = utils.load_file(path + "/res/" + word_file).split()
+        filtered_tweets = process_tweets(tweets, word_list, split_hashtag_method)
         utils.save_file(filtered_tweets, clean_filename)
         return filtered_tweets
     else:
@@ -382,40 +599,37 @@ def get_clean_data(train_filename, test_filename, word_list):
     tokens_filename = "tokens_"
     pos_filename = "pos_"
     tokens_vocab_filename = "vocabulary_of_tokens_" + train_filename
-    pos_vocab_filename = "vocabulary_of_pos_tags_" + train_filename
 
     # Load the train and test sets
     print("Loading data...")
-    train_tweets, train_labels = utils.load_data_panda(path + "/res/" + train_filename)
-    test_tweets, test_labels = utils.load_data_panda(path + "/res/" + test_filename)
+    train_tweets, train_labels = utils.load_data_panda(path + "/res/datasets/" + train_filename)
+    test_tweets, test_labels = utils.load_data_panda(path + "/res/datasets/" + test_filename)
 
     # Initial clean of data
-    initial_clean(train_tweets, path + "/res/clean_" + train_filename, word_list)
-    initial_clean(test_tweets, path + "/res/clean_" + test_filename, word_list)
+    initial_clean(train_tweets, path + "/res/datasets/clean_" + train_filename, word_list)
+    initial_clean(test_tweets, path + "/res/datasets/clean_" + test_filename, word_list)
 
     # Get the tags corresponding to the test and train files
     train_tokens, train_pos = \
-        get_tags_for_each_tweet(path + "/res/" + tweets_filename + train_filename,
-                                path + "/res/" + tokens_filename + train_filename,
-                                path + "/res/" + pos_filename + train_filename)
+        get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/" + tweets_filename + train_filename,
+                                path + "/res/tokens/" + tokens_filename + train_filename,
+                                path + "/res/pos/" + pos_filename + train_filename)
     test_tokens, test_pos = \
-        get_tags_for_each_tweet(path + "/res/" + tweets_filename + test_filename,
-                                path + "/res/" + tokens_filename + test_filename,
-                                path + "/res/" + pos_filename + test_filename)
+        get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/" + tweets_filename + test_filename,
+                                path + "/res/tokens/" + tokens_filename + test_filename,
+                                path + "/res/pos/" + pos_filename + test_filename)
     # Ulterior clean of the tags (tokens and pos)
     
     filtered_train_tokens = \
-        ulterior_token_clean(train_tokens, path + "/res/" + tokens_vocab_filename,
-                             path + "/res/filtered_" + tokens_filename + train_filename)
+        ulterior_token_clean(train_tokens, path + "/res/vocabulary/" + tokens_vocab_filename,
+                             path + "/res/tokens/filtered_" + tokens_filename + train_filename)
     filtered_test_tokens = \
-        ulterior_token_clean(test_tokens, path + "/res/" + tokens_vocab_filename,
-                             path + "/res/filtered_" + tokens_filename + test_filename)
+        ulterior_token_clean(test_tokens, path + "/res/vocabulary/" + tokens_vocab_filename,
+                             path + "/res/tokens/filtered_" + tokens_filename + test_filename)
     filtered_train_pos = \
-        ulterior_pos_clean(train_pos, path + "/res/" + pos_vocab_filename,
-                           path + "/res/filtered_" + pos_filename + train_filename)
+        ulterior_pos_clean(train_pos, path + "/res/pos/filtered_" + pos_filename + train_filename)
     filtered_test_pos = \
-        ulterior_pos_clean(test_pos, path + "/res/" + pos_vocab_filename,
-                           path + "/res/filtered_" + pos_filename + test_filename)
+        ulterior_pos_clean(test_pos, path + "/res/pos/filtered_" + pos_filename + test_filename)
     
     return train_tokens, filtered_train_tokens, train_pos, filtered_train_pos, train_labels,\
         test_tokens, filtered_test_tokens, test_pos, filtered_test_pos, test_labels
@@ -426,16 +640,16 @@ def get_clean_dl_data(train_filename, dev_filename, test_filename, word_list):
 
     # Load the train and test sets
     print("Loading data...")
-    train_tweets, train_labels = utils.load_data_panda(path + "/res/" + train_filename)
-    dev_tweets, dev_labels = utils.load_data_panda(path + "/res/" + dev_filename)
-    test_tweets, test_labels = utils.load_data_panda(path + "/res/" + test_filename)
+    train_tweets, train_labels = utils.load_data_panda(path + "/res/datasets/" + train_filename)
+    dev_tweets, dev_labels = utils.load_data_panda(path + "/res/datasets/" + dev_filename)
+    test_tweets, test_labels = utils.load_data_panda(path + "/res/datasets/" + test_filename)
 
     # Initial clean of data
-    clean_train_tweets = initial_clean(train_tweets, path + "/res/clean_" + train_filename, word_list)
-    clean_dev_tweets = initial_clean(dev_tweets, path + "/res/clean_" + dev_filename, word_list)
-    clean_test_tweets = initial_clean(test_tweets, path + "/res/clean_" + test_filename, word_list)
+    clean_train_tweets = initial_clean(train_tweets, path + "/res/datasets/clean_" + train_filename, word_list)
+    clean_dev_tweets = initial_clean(dev_tweets, path + "/res/datasets/clean_" + dev_filename, word_list)
+    clean_test_tweets = initial_clean(test_tweets, path + "/res/datasets/clean_" + test_filename, word_list)
 
-    vocabulary = build_vocabulary_for_dnn_tasks(path + "/res/" + vocab_filename, clean_train_tweets)
+    vocabulary = build_vocabulary_for_dnn_tasks(path + "/res/vocabulary/" + vocab_filename, clean_train_tweets)
     clean_train_tweets, train_indices = vocabulary_filtering(vocabulary, clean_train_tweets)
     clean_dev_tweets, dev_indices = vocabulary_filtering(vocabulary, clean_dev_tweets)
     clean_test_tweets, test_indices = vocabulary_filtering(vocabulary, clean_test_tweets)
@@ -443,3 +657,43 @@ def get_clean_dl_data(train_filename, dev_filename, test_filename, word_list):
     return clean_train_tweets, train_indices, train_labels, \
         clean_dev_tweets, dev_indices, dev_labels, \
         clean_test_tweets, test_indices, test_labels, len(vocabulary)
+
+
+def get_grammatical_data(train_filename, dev_filename, test_filename, dict_list, word_list):
+    # Load the train and test sets
+    print("Loading data...")
+    train_tweets, train_labels = utils.load_data_panda(path + "/res/datasets/" + train_filename)
+    dev_tweets, dev_labels = utils.load_data_panda(path + "/res/datasets/" + dev_filename)
+    test_tweets, test_labels = utils.load_data_panda(path + "/res/datasets/" + test_filename)
+
+    # Initial clean of data
+    initial_clean(train_tweets, path + "/res/datasets/grammatical_" + train_filename, word_list,
+                  word_file_is_dict=True, split_hashtag_method=split_hashtags2)
+    initial_clean(dev_tweets, path + "/res/datasets/grammatical_" + dev_filename, word_list,
+                  word_file_is_dict=True, split_hashtag_method=split_hashtags2)
+    initial_clean(test_tweets, path + "/res/datasets/grammatical_" + test_filename, word_list,
+                  word_file_is_dict=True, split_hashtag_method=split_hashtags2)
+
+    # Get the tags corresponding to the test and train files
+    train_tokens, train_pos = \
+        get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + train_filename,
+                                path + "/res/tokens/grammatical_tokens_" + train_filename,
+                                path + "/res/pos/grammatical_pos_" + train_filename)
+    dev_tokens, dev_pos = \
+        get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + dev_filename,
+                                path + "/res/tokens/grammatical_tokens_" + dev_filename,
+                                path + "/res/pos/grammatical_pos_" + dev_filename)
+    test_tokens, test_pos = \
+        get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + test_filename,
+                                path + "/res/tokens/grammatical_tokens_" + test_filename,
+                                path + "/res/pos/grammatical_pos_" + test_filename)
+
+    # Clean the data and brind it to the most *grammatical* form possible
+    grammatical_train_tweets = grammatical_clean(train_tokens, train_pos, path + "/res/" + dict_list,
+                                                 path + "/res/grammatical/finest_grammatical_tweets_" + train_filename)
+    grammatical_dev_tweets = grammatical_clean(dev_tokens, dev_pos, path + "/res/" + dict_list,
+                                                 path + "/res/grammatical/finest_grammatical_tweets_" + dev_filename)
+    grammatical_test_tweets = grammatical_clean(test_tokens, test_pos, path + "/res/" + dict_list,
+                                                 path + "/res/grammatical/finest_grammatical_tweets_" + test_filename)
+    return grammatical_train_tweets, train_labels, grammatical_dev_tweets, dev_labels,\
+        grammatical_test_tweets, test_labels

@@ -7,7 +7,7 @@ from sklearn.feature_extraction import DictVectorizer
 import matplotlib.pyplot as plt
 from keras.preprocessing.text import Tokenizer
 import keras.backend as K
-from collections import  Counter
+from collections import Counter
 from pandas import read_csv
 
 
@@ -91,6 +91,16 @@ def load_model(json_name, h5_weights_name, verbose=False):
     return model
 
 
+# Given any number of dicts, shallow copy and merge into a new dict,
+# precedence goes to key value pairs in latter dicts.
+# This is in case a Python3.5 version is NOT used. (needed for my access to the zCSF cluster)
+def merge_dicts(*dict_args):
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result
+
+
 # Get some idea about the max length of the train tweets
 def get_max_len_info(tweets):
     print("==================================================================\n")
@@ -147,8 +157,11 @@ def feature_scaling(features):
     return scaled_features
 
 
-def run_models(train_features, train_labels, test_features, test_labels, class_ratio):
+def run_models(train_features, train_labels, test_features, test_labels):
+    class_ratio = get_classes_ratio_as_dict(train_labels)
+    # class_ratio = 'balanced'
     classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
+    classifiers.logistic(train_features, train_labels, test_features, test_labels, class_ratio)
     classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
 
 
