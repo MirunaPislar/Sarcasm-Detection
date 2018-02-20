@@ -1,4 +1,4 @@
-import sys, datetime
+import sys, datetime, os
 import numpy as np
 import classifiers
 from keras.models import model_from_json
@@ -104,14 +104,11 @@ def merge_dicts(*dict_args):
 # Get some idea about the max length of the train tweets
 def get_max_len_info(tweets):
     print("==================================================================\n")
-    sum_of_length = sum([len(l) for l in tweets])
+    sum_of_length = sum([len(l.split()) for l in tweets])
     print("Mean of train tweets: ", sum_of_length / float(len(tweets)))
-    max_tweet_length = max([len(l) for l in tweets])
-    print("Max tweet length is = ", max_tweet_length)
-    # max_tweet_length = int(sum_of_length / len(tweets_train))
-    max_tweet_length = 30
-    print("Chosen max tweet length is = ", max_tweet_length)
-    return max_tweet_length
+    max_tweet_len = len(max(tweets, key=len).split())
+    print("Max tweet length is = ", max_tweet_len)
+    return max_tweet_len
 
 
 def get_classes_ratio(labels):
@@ -125,9 +122,7 @@ def get_classes_ratio(labels):
 
 def get_classes_ratio_as_dict(labels):
     ratio = Counter(labels)
-    ratio_dict = {}
-    ratio_dict[0] = float(max(ratio[0], ratio[1]) / ratio[0])
-    ratio_dict[1] = float(max(ratio[0], ratio[1]) / ratio[1])
+    ratio_dict = {0: float(max(ratio[0], ratio[1]) / ratio[0]), 1: float(max(ratio[0], ratio[1]) / ratio[1])}
     print('Class ratio: ', ratio_dict)
     return ratio_dict
 
@@ -161,14 +156,27 @@ def run_models(train_features, train_labels, test_features, test_labels):
     class_ratio = get_classes_ratio_as_dict(train_labels)
     # class_ratio = 'balanced'
     classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
-    classifiers.logistic(train_features, train_labels, test_features, test_labels, class_ratio)
-    classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
+    classifiers.logistic_regression(train_features, train_labels, test_features, test_labels, class_ratio)
+    # classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
 
 
-def encode_text_as_matrix(train_tweets, test_tweets, mode):
+# Convert tweets into an array of indices of shape (m, max_tweet_length)
+def tweets_to_indices(tweets, word_to_index, max_tweet_len):
+    m = tweets.shape[0]
+    tweet_indices = np.zeros((m, max_tweet_len))
+    for i in range(m):
+        sentence_words = [w.lower() for w in tweets[i].split()]
+        j = 0
+        for w in sentence_words:
+            tweet_indices[i, j] = word_to_index[w]
+            j = j + 1
+    return tweet_indices
+
+
+def encode_text_as_matrix(train_tweets, test_tweets, mode, max_num_words=None, lower=False, char_level=False):
     # Create the tokenizer
-    tokenizer = Tokenizer(num_words=None, filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n',
-                          lower=True, split=" ", char_level=False)
+    tokenizer = Tokenizer(num_words=max_num_words, filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n',
+                          lower=lower, split=" ", char_level=char_level)
     # Fit the tokenizer on the documents
     tokenizer.fit_on_texts(train_tweets)
     # Encode each example using a 'mode' scoring method (mode can be count, binary, freq, tf-idf)
@@ -177,20 +185,20 @@ def encode_text_as_matrix(train_tweets, test_tweets, mode):
     return x_train, x_test
 
 
-def encode_text_as_word_indexes(train_tweets, test_tweets):
+def encode_text_as_word_indexes(train_tweets, test_tweets, max_num_words=None, lower=False, char_level=False):
     # Create the tokenizer
-    tokenizer = Tokenizer(num_words=None, filters='', lower=False, split=" ", char_level=False)
+    tokenizer = Tokenizer(num_words=max_num_words, filters='', lower=lower, split=" ", char_level=char_level)
     # Fit the tokenizer on the documents
     tokenizer.fit_on_texts(train_tweets)
     # Encode each example as a sequence of word indexes based on the vocabulary of the tokenizer
     x_train = tokenizer.texts_to_sequences(train_tweets)
     x_test = tokenizer.texts_to_sequences(test_tweets)
-    return x_train, x_test, len(tokenizer.word_counts)
+    return tokenizer, x_train, x_test
 
 
-def encode_text_as_one_hot_encodings(train_tweets, test_tweets):
+def encode_text_as_one_hot_encodings(train_tweets, test_tweets, max_num_words=None, lower=False, char_level=False):
     # Create the tokenizer
-    tokenizer = Tokenizer(num_words=None, filters='', lower=False, split=" ", char_level=False)
+    tokenizer = Tokenizer(num_words=max_num_words, filters='', lower=lower, split=" ", char_level=char_level)
     # Fit the tokenizer on the documents
     tokenizer.fit_on_texts(train_tweets)
     # Get the vocabulary size
@@ -199,6 +207,40 @@ def encode_text_as_one_hot_encodings(train_tweets, test_tweets):
     x_train = [tokenizer.one_hot(train_example, vocab_size * 1.5) for train_example in train_tweets]
     x_test = [tokenizer.one_hot(test_example, vocab_size * 1.5) for test_example in test_tweets]
     return x_train, x_test, vocab_size
+
+
+def load_glove_vectors(glove_filename='glove.6B.100d.txt'):
+    # Prepare the embedding layer
+    word2vec_map = {}
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    f = open(path + '/res/glove/' + glove_filename)
+    for line in f:
+        values = line.split()
+        word = values[0]
+        weights = np.asarray(values[1:], dtype='float32')
+        word2vec_map[word] = weights
+    f.close()
+    print('Found %s word vectors and with embedding dimmension %s'
+          % (len(word2vec_map), next(iter(word2vec_map.values())).shape[0]))
+    return word2vec_map
+
+
+# Compute the word-embedding matrix
+def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim):
+    # Initialize the embedding matrix as a numpy array of zeros of shape (vocab_len, dimensions of word vectors)
+    embedding_matrix = np.zeros((len(word_to_index) + 1, embedding_dim))
+    for word, i in word_to_index.items():
+        embedding_vector = word2vec_map.get(word)
+        if embedding_vector is not None:
+            # words not found in embedding index will be all-zeros
+            embedding_matrix[i] = embedding_vector
+            # words not found in embedding index will initialized to random values
+            # from numpy.random import seed
+            # seed(1337603)
+            # embedding_matrix[i] = np.random.rand(1, embedding_dim)
+        else:
+            print("Not found: ", word)
+    return embedding_matrix
 
 
 # Custom metric function
@@ -224,6 +266,15 @@ def f1_score(y_true, y_pred):
     return 2 * ((precision*recall) / (precision+recall))
 
 
+# This code allows you to see the mislabelled examples
+def analyse_mislabelled_examples(x_test, y_test, y_pred):
+    for i in range(len(y_test)):
+        num = np.argmax(y_pred[i])
+        if num != y_test[i]:
+            print('Expected:', y_test[i], ' but predicted ', num)
+            print(x_test[i])
+
+
 def print_statistics(y, y_pred):
     accuracy = metrics.accuracy_score(y, y_pred)
     precision = metrics.precision_score(y, y_pred, average='weighted')
@@ -235,12 +286,15 @@ def print_statistics(y, y_pred):
     return accuracy, precision, recall, f_score
 
 
-def plot_training_statistics(history, plot_name):
+def plot_training_statistics(history, plot_name, also_plot_validation=False):
     # Plot Accuracy
     plt.figure()
     plt.plot(history.history['acc'], 'k-', label='Training Accuracy')
-    plt.plot(history.history['val_acc'], 'r--', label='Validation Accuracy')
-    plt.title('Training vs Validation Accuracy')
+    if also_plot_validation:
+        plt.plot(history.history['val_acc'], 'r--', label='Validation Accuracy')
+        plt.title('Training vs Validation Accuracy')
+    else:
+        plt.title('Training Accuracy')
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
@@ -249,8 +303,11 @@ def plot_training_statistics(history, plot_name):
     # Plot Loss
     plt.figure()
     plt.plot(history.history['loss'], 'k-', label='Training Loss')
-    plt.plot(history.history['val_loss'], 'r--', label='Validation Loss')
-    plt.title('Training vs Validation Loss')
+    if also_plot_validation:
+        plt.plot(history.history['val_loss'], 'r--', label='Validation Loss')
+        plt.title('Training vs Validation Loss')
+    else:
+        plt.title('Training Loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
@@ -292,6 +349,23 @@ def print_model_title(name):
     print("==================================================================\n")
 
 
+# Method that prints the settings for each DNN model
+def print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units,
+                   epochs, batch_size, dropout):
+    print("==================================================================\n")
+    print("Model Settings:\n")
+    print("==================================================================\n")
+    print("Max tweet length = ", max_tweet_length)
+    print("Vocab size = ", vocab_size)
+    print("Embedding vector dimension = ", embedding_vector_dim)
+    print("Hidden units ", hidden_units)
+    print("Epochs ", epochs)
+    print("Batch size ", batch_size)
+    print("Dropout ", dropout)
+    print("==================================================================\n")
+
+
+# This allows me to print both to file and to standard output at the same time
 class writer:
     def __init__(self, *writers):
         self.writers = writers
