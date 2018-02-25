@@ -9,6 +9,7 @@ from keras.preprocessing.text import Tokenizer
 import keras.backend as K
 from collections import Counter
 from pandas import read_csv
+from numpy.random import seed
 
 
 def load_file(filename):
@@ -99,6 +100,29 @@ def merge_dicts(*dict_args):
     for dictionary in dict_args:
         result.update(dictionary)
     return result
+
+
+def batch_generator(X, y, batch_size):
+    # Primitive batch generator
+    size = X.shape[0]
+    X_copy = X.copy()
+    y_copy = y.copy()
+    indices = np.arange(size)
+    np.random.shuffle(indices)
+    X_copy = X_copy[indices]
+    y_copy = y_copy[indices]
+    i = 0
+    while True:
+        if i + batch_size <= size:
+            yield X_copy[i:i + batch_size], y_copy[i:i + batch_size]
+            i += batch_size
+        else:
+            i = 0
+            indices = np.arange(size)
+            np.random.shuffle(indices)
+            X_copy = X_copy[indices]
+            y_copy = y_copy[indices]
+            continue
 
 
 # Get some idea about the max length of the train tweets
@@ -234,12 +258,12 @@ def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim):
         if embedding_vector is not None:
             # words not found in embedding index will be all-zeros
             embedding_matrix[i] = embedding_vector
+        else:
             # words not found in embedding index will initialized to random values
             # from numpy.random import seed
-            # seed(1337603)
-            # embedding_matrix[i] = np.random.rand(1, embedding_dim)
-        else:
-            print("Not found: ", word)
+            seed(1337603)
+            embedding_matrix[i] = np.random.uniform(-1, 1, size=(1, embedding_dim))
+            # print("Not found: ", word)
     return embedding_matrix
 
 
@@ -353,7 +377,7 @@ def print_model_title(name):
 def print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units,
                    epochs, batch_size, dropout):
     print("==================================================================\n")
-    print("Model Settings:\n")
+    print("Model Settings\n")
     print("==================================================================\n")
     print("Max tweet length = ", max_tweet_length)
     print("Vocab size = ", vocab_size)
