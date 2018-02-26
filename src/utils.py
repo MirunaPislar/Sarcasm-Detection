@@ -250,7 +250,7 @@ def load_glove_vectors(glove_filename='glove.6B.100d.txt'):
 
 
 # Compute the word-embedding matrix
-def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim):
+def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim, init_unk=True):
     # Initialize the embedding matrix as a numpy array of zeros of shape (vocab_len, dimensions of word vectors)
     embedding_matrix = np.zeros((len(word_to_index) + 1, embedding_dim))
     for word, i in word_to_index.items():
@@ -258,12 +258,12 @@ def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim):
         if embedding_vector is not None:
             # words not found in embedding index will be all-zeros
             embedding_matrix[i] = embedding_vector
-        else:
+        elif init_unk:
             # words not found in embedding index will initialized to random values
-            # from numpy.random import seed
             seed(1337603)
             embedding_matrix[i] = np.random.uniform(-1, 1, size=(1, embedding_dim))
-            # print("Not found: ", word)
+        # else:
+        #    print("Not found: ", word)
     return embedding_matrix
 
 
@@ -310,32 +310,33 @@ def print_statistics(y, y_pred):
     return accuracy, precision, recall, f_score
 
 
-def plot_training_statistics(history, plot_name, also_plot_validation=False):
+def plot_training_statistics(history, plot_name, also_plot_validation=False, acc_mode='acc', loss_mode='loss'):
     # Plot Accuracy
     plt.figure()
-    plt.plot(history.history['acc'], 'k-', label='Training Accuracy')
+    plt.plot(history.history[acc_mode], 'k-', label='Training Accuracy')
     if also_plot_validation:
-        plt.plot(history.history['val_acc'], 'r--', label='Validation Accuracy')
+        plt.plot(history.history['val_' + acc_mode], 'r--', label='Validation Accuracy')
         plt.title('Training vs Validation Accuracy')
     else:
         plt.title('Training Accuracy')
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
-    plt.savefig(plot_name + "_model_acc.png")
+    plt.ylim([0.0, 1.0])
+    plt.savefig(plot_name + "_acc.png")
 
     # Plot Loss
     plt.figure()
-    plt.plot(history.history['loss'], 'k-', label='Training Loss')
+    plt.plot(history.history[loss_mode], 'k-', label='Training Loss')
     if also_plot_validation:
-        plt.plot(history.history['val_loss'], 'r--', label='Validation Loss')
+        plt.plot(history.history['val_' + loss_mode], 'r--', label='Validation Loss')
         plt.title('Training vs Validation Loss')
     else:
         plt.title('Training Loss')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
-    plt.savefig(plot_name + "_model_loss.png")
+    plt.savefig(plot_name + "_loss.png")
 
 
 # This is used to plot the coefficients that have the greatest impact on a classifier like SVM
