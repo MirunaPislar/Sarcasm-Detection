@@ -1,13 +1,15 @@
 import sys, datetime, os
 import numpy as np
+import math
 import classifiers
+import data_processing as data_proc
 from keras.models import model_from_json
 from sklearn import metrics
 from sklearn.feature_extraction import DictVectorizer
 import matplotlib.pyplot as plt
 from keras.preprocessing.text import Tokenizer
 import keras.backend as K
-from collections import Counter
+from collections import Counter, OrderedDict
 from pandas import read_csv
 from numpy.random import seed
 
@@ -104,6 +106,7 @@ def merge_dicts(*dict_args):
 
 def batch_generator(X, y, batch_size):
     # Primitive batch generator
+    seed(1655483)
     size = X.shape[0]
     X_copy = X.copy()
     y_copy = y.copy()
@@ -233,11 +236,29 @@ def encode_text_as_one_hot_encodings(train_tweets, test_tweets, max_num_words=No
     return x_train, x_test, vocab_size
 
 
-def load_glove_vectors(glove_filename='glove.6B.100d.txt'):
-    # Prepare the embedding layer
+# Build random vector mappings of a vocabulary
+def build_random_word2vec(tweets, embedding_dim=100, variance=1):
+    print("\nBuilding random vector of mappings with dimension %d..." % embedding_dim)
+    word2vec_map = {}
+    seed(1457873)
+    for tw in tweets:
+        for word in tw.split():
+            if '#' in word:
+                word = word[1:]
+            embedding_vector = word2vec_map.get(word)
+            if embedding_vector is None:
+                word2vec_map[word] = np.random.uniform(-variance, variance, size=(embedding_dim,))
+    return word2vec_map
+
+
+def load_vectors(filename='glove.6B.100d.txt'):
+    print("\nLoading vector mappings from %s..." % filename)
     word2vec_map = {}
     path = os.getcwd()[:os.getcwd().rfind('/')]
-    f = open(path + '/res/glove/' + glove_filename)
+    if 'glove' in filename:
+        f = open(path + '/res/glove/' + filename)
+    elif 'emoji' in filename:
+        f = open(path + '/models/emoji2vec/' + filename)
     for line in f:
         values = line.split()
         word = values[0]
@@ -250,21 +271,180 @@ def load_glove_vectors(glove_filename='glove.6B.100d.txt'):
 
 
 # Compute the word-embedding matrix
-def get_embeding_matrix(word2vec_map, word_to_index, embedding_dim, init_unk=True):
+def get_embedding_matrix(word2vec_map, word_to_index, embedding_dim, init_unk=True, variance=None):
+    # Get the variance of the embedding map
+    if init_unk and variance is None:
+        variance = embedding_variance(word2vec_map)
+        print("Word vectors have variance ", variance)
     # Initialize the embedding matrix as a numpy array of zeros of shape (vocab_len, dimensions of word vectors)
     embedding_matrix = np.zeros((len(word_to_index) + 1, embedding_dim))
     for word, i in word_to_index.items():
         embedding_vector = word2vec_map.get(word)
         if embedding_vector is not None:
-            # words not found in embedding index will be all-zeros
             embedding_matrix[i] = embedding_vector
         elif init_unk:
-            # words not found in embedding index will initialized to random values
+            # Unknown tokens are initialized randomly by sampling from a uniform distribution [-var, var]
             seed(1337603)
-            embedding_matrix[i] = np.random.uniform(-1, 1, size=(1, embedding_dim))
+            embedding_matrix[i] = np.random.uniform(-variance, variance, size=(1, embedding_dim))
         # else:
         #    print("Not found: ", word)
     return embedding_matrix
+
+
+# Get the vec representation of a set of tweets based on a specified embedding (can be a word or emoji mapping)
+def get_tweets_embeddings(tweets, vec_map, embedding_dim=100, init_unk=False, variance=None, weighted_average=True):
+    # Get the variance of the embedding map
+    if init_unk and variance is None:
+        variance = embedding_variance(vec_map)
+        print("Vector mappings have variance ", variance)
+    # If set, calculate the tf-idf weight of each embedding, otherwise, no weighting (all weights are 1.0)
+    if weighted_average:
+        weights = get_tf_idf_weights(tweets, vec_map)
+    else:
+        weights = {k: 1.0 for k in vec_map.keys()}
+    tw_emb = np.zeros((len(tweets), embedding_dim))
+    for i, tw in enumerate(tweets):
+        total_valid = 0
+        for word in tw.split():
+            if '#' in word:
+                word = word[1:]
+            embedding_vector = vec_map.get(word)
+            if embedding_vector is not None:
+                tw_emb[i] = tw_emb[i] + embedding_vector * weights[word]
+                total_valid += 1
+            elif init_unk:
+                seed(1337603)
+                tw_emb[i] = np.random.uniform(-variance, variance, size=(1, embedding_dim))
+            # else:
+            #    print("Not found: ", word)
+        # Get the average embedding representation for this tweet
+        tw_emb[i] /= float(max(total_valid, 1))
+    return tw_emb
+
+
+# Based on the deepmoji project, predicting emojis for each tweet -- done using their pre-trained weights
+# Here we extract the relevant emojis (with an individual probability of being accurate over teh set threshold)
+def get_deepmojis(filename, threshold=0.05):
+    print("\nGetting deep-mojis for each tweet in %s..." % filename)
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    df = read_csv(path + "/res/deepmoji/" + filename, sep='\t')
+    pred_mappings = load_file(path + "/res/emoji/wanted_emojis.txt").split("\n")
+    emoji_pred = []
+    for index, row in df.iterrows():
+        tw_pred = []
+        for top in range(5):
+            if row['Pct_%d' % (top+1)] >= threshold:
+                tw_pred.append(row['Emoji_%d' % (top + 1)])
+        emoji_pred.append([pred_mappings[t] for t in tw_pred])
+    print("Couldn't find a strong emoji prediction for %d emojis" % len([pred for pred in emoji_pred if pred == []]))
+    return emoji_pred
+
+
+# Calculate the variance of an embedding (like glove, word2vec, emoji2vec, etc)
+# Used to sample new uniform distributions of vectors in the interval [-variance, variance]
+def embedding_variance(vec_map):
+    variance = np.sum([np.var(vec) for vec in vec_map.values()]) / len(vec_map)
+    return variance
+
+
+# Shuffle the words in all tweets
+def shuffle_words(tweets):
+    shuffled = []
+    for tweet in tweets:
+        words = [word for word in tweet.split()]
+        np.random.shuffle(words)
+        shuffled.append(' '.join(words))
+    return shuffled
+
+
+# Get the tf-idf weighting scheme (used to measure the contribution of a word in a tweet => weighted sum of embeddings)
+def get_tf_idf_weights(tweets, vec_map):
+    df = {}
+    for tw in tweets:
+        words = set(tw.split())
+        for word in words:
+            if word not in df:
+                df[word] = 0.0
+            df[word] += 1.0
+    idf = OrderedDict()
+    for word in vec_map.keys():
+        n = 1.0
+        if word in df:
+            n += df[word]
+        score = math.log(len(tweets) / float(n))
+        idf[word] = score
+    return idf
+
+
+# Compute the similarity of 2 vectors, both of shape (n, )
+def cosine_similarity(u, v):
+    dot = np.dot(u, v)
+    norm_u = np.sqrt(np.sum(u ** 2))
+    norm_v = np.sqrt(np.sum(v ** 2))
+    cosine_distance = dot / (norm_u * norm_v)
+    return cosine_distance
+
+
+# Performs the word analogy task: a is to b as c is to ____.
+def complete_analogy(a, b, c, vec_map):
+    # Get the vector embeddings
+    e_a, e_b, e_c = vec_map[a], vec_map[b], vec_map[c]
+    max_cosine_sim = -100
+    best = None
+    for v in vec_map.keys():
+        # The best match shouldn't be one of the inputs, so pass on them.
+        if v in [a, b, c]:
+            continue
+        # Compute cosine similarity between the vector (e_b - e_a) and the vector ((w's vector representation) - e_c)
+        cosine_sim = cosine_similarity(e_b - e_a, vec_map[v] - e_c)
+        if cosine_sim > max_cosine_sim:
+            max_cosine_sim = cosine_sim
+            best = v
+    print(str.format('{} - {} + {} = {}', a, b, c, best))
+    return best
+
+
+# Get the Euclidean distance between two vectors
+def euclidean_distance(u_vector, v_vector):
+    distance = np.sqrt(np.sum([(u - v) ** 2 for u, v in zip(u_vector, v_vector)]))
+    return distance
+
+
+# Given a tweet, return the scores of the most similar/dissimilar pairs of words
+def get_similarity_measures(tweet, vec_map, weighted=False, verbose=True):
+    # Filter a bit the tweet so that no punctuation and no stopwords are included
+    stopwords = data_proc.get_stopwords_list()
+    filtered_tweet = list(set([w.lower() for w in tweet.split()
+                      if w.isalpha() and w not in stopwords and w.lower() in vec_map.keys()]))
+    # Compute similarity scores between any 2 words in filtered tweet
+    similarity_scores = []
+    max_score = -100
+    min_score = 100
+    for i in range(len(filtered_tweet) - 1):
+        wi = filtered_tweet[i]
+        for j in range(i + 1, len(filtered_tweet)):
+            wj = filtered_tweet[j]
+            similarity = cosine_similarity(vec_map[wi], vec_map[wj])
+            if weighted:
+                similarity /= euclidean_distance(vec_map[wi], vec_map[wj])
+            similarity_scores.append(similarity)
+            if max_score < similarity:
+                max_score = similarity
+                max_words = [wi, wj]
+            if min_score > similarity:
+                min_score = similarity
+                min_words = [wi, wj]
+    if verbose:
+        print("Filtered tweet: ", filtered_tweet)
+        if max_score != -100:
+            print("Maximum similarity is ", max_score, " between words ", max_words)
+        else:
+            print("No max! Scores are: ", similarity_scores)
+        if min_score != 100:
+            print("Minimum similarity is ", min_score, " between words ", min_words)
+        else:
+            print("No min! Scores are: ", similarity_scores)
+    return max_score, min_score
 
 
 # Custom metric function
@@ -285,6 +465,7 @@ def f1_score(y_true, y_pred):
         predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
         precision = true_positives / (predicted_positives + K.epsilon())
         return precision
+
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
     return 2 * ((precision*recall) / (precision+recall))
