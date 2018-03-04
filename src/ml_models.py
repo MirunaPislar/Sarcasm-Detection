@@ -1,108 +1,156 @@
 import os, time, itertools
-import extract_quick_and_dirty_features as extract_features
-import extract_statistical_features as extract_stat_features
+from sklearn import preprocessing
+import extract_baseline_features
+import extract_ml_features as extract_features
 import utils, classifiers
 import data_processing as data_proc
 
 
-def baseline(tweets_train, labels_train, tweets_test, labels_test):
+# Settings for the up-coming ML model
+pragmatic = True
+lexical = True
+pos_grams = True
+sentiment = True
+topic = True
+similarity = True
+pos_ngram_list = [1, 2, 3]
+ngram_list = [1]
+embedding_dim = 300
+word2vec_map = utils.load_vectors(filename='glove.6B.%dd.txt' % embedding_dim)
+
+
+def baseline(tweets_train, train_labels, tweets_test, test_labels):
     # Import the subjectivity lexicon
     subj_dict = data_proc.get_subj_lexicon()
 
-    types_of_features = ['1', '2', '3'] # , 'ngrams']
+    types_of_features = ['1', '2', '3', 'ngrams']
     for type in types_of_features:
         start = time.time()
         utils.print_model_title("Classification using feature type " + type)
         if type is '1':
-            x_train_features = extract_features.get_features1(tweets_train, subj_dict)
-            x_test_features = extract_features.get_features1(tweets_test, subj_dict)
+            x_train_features = extract_baseline_features.get_features1(tweets_train, subj_dict)
+            x_test_features = extract_baseline_features.get_features1(tweets_test, subj_dict)
 
         if type is '2':
-            x_train_features = extract_features.get_features2(tweets_train, subj_dict)
-            x_test_features = extract_features.get_features2(tweets_test, subj_dict)
+            x_train_features = extract_baseline_features.get_features2(tweets_train, subj_dict)
+            x_test_features = extract_baseline_features.get_features2(tweets_test, subj_dict)
 
         if type is '3':
-            x_train_features = extract_features.get_features3(tweets_train, subj_dict)
-            x_test_features = extract_features.get_features3(tweets_test, subj_dict)
+            x_train_features = extract_baseline_features.get_features3(tweets_train, subj_dict)
+            x_test_features = extract_baseline_features.get_features3(tweets_test, subj_dict)
 
         if type is 'ngrams':
-            ngram_map, x_train_features = extract_features.get_ngram_features(tweets_train, n=1)
-            x_test_features = extract_features.get_ngram_features_from_map(tweets_test, ngram_map, n=1)
+            ngram_map, x_train_features = extract_baseline_features.get_ngram_features(tweets_train, n=1)
+            x_test_features = extract_baseline_features.get_ngram_features_from_map(tweets_test, ngram_map, n=1)
 
         # Get the class ratio
-        class_ratio = utils.get_classes_ratio_as_dict(labels_train)
+        class_ratio = utils.get_classes_ratio_as_dict(train_labels)
 
         # Train on a Linear Support Vector Classifier
         print("\nEvaluating a linear SVM model...")
-        classifiers.linear_svm(x_train_features, labels_train, x_test_features, labels_test, class_ratio)
+        classifiers.linear_svm(x_train_features, train_labels, x_test_features, test_labels, class_ratio)
 
         # Train on a Logistic Regression Classifier
         print("\nEvaluating a logistic regression model...")
-        classifiers.logistic_regression(x_train_features, labels_train, x_test_features, labels_test, class_ratio)
+        classifiers.logistic_regression(x_train_features, train_labels, x_test_features, test_labels, class_ratio)
         end = time.time()
         print("Completion time of the baseline model with features type %s: %.3f s = %.3f min"
               % (type, (end - start), (end - start) / 60.0))
 
 
-def ml_model(train_file, test_file, train_tokens, filtered_train_tokens, train_pos,
-             filtered_train_pos, train_labels, test_tokens, filtered_test_tokens, test_pos,
-             filtered_test_pos, test_labels, option):
-    start = time.time()
+def ml_model(train_tokens, train_filtered_tokens, train_pos, train_filtered_pos, y_train,
+             test_tokens, test_filtered_tokens, test_pos, test_filtered_pos, y_test, verbose=False):
 
     print("Processing TRAIN SET features...\n")
-    x_train_features = extract_stat_features.get_feature_set \
-        (train_file, train_tokens, train_pos, filtered_train_tokens, filtered_train_pos,
-         pragmatic=option[4], pos_unigrams=option[3], pos_bigrams=option[2],
-         lexical=False, ngram_list=[1], sentiment=option[1], topic=option[0])
+    train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim = extract_features.get_feature_set\
+        (train_tokens, train_pos, train_filtered_tokens, train_filtered_pos, set="train",
+         pragmatic=pragmatic, lexical=lexical, ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
+         sentiment=sentiment, topic=topic, similarity=similarity, word2vec_map=word2vec_map)
 
     print("Processing TEST SET features...\n")
-    x_test_features = extract_stat_features.get_feature_set \
-        (test_file, test_tokens, test_pos, filtered_test_tokens, filtered_test_pos,
-         pragmatic=option[4], pos_unigrams=option[3], pos_bigrams=option[2],
-         lexical=False, ngram_list=[1], sentiment=option[1], topic=option[0])
+    test_pragmatic, test_lexical, test_pos, test_sent, test_topic, test_sim = extract_features.get_feature_set \
+        (test_tokens, test_pos, test_filtered_tokens, test_filtered_pos, set="test",
+         pragmatic=pragmatic, lexical=lexical, ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
+         sentiment=sentiment, topic=topic, similarity=similarity, word2vec_map=word2vec_map)
 
-    train_features, test_features = utils.extract_features_from_dict(x_train_features, x_test_features)
+    if verbose:
+        utils.print_feature_values("TRAIN", train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim)
+        utils.print_feature_values("TEST", test_pragmatic, test_lexical, test_pos, test_sent, test_topic, test_sim)
 
-    print("===================================================================")
-    for t in test_features:
-        print(t)
+    # Get all features together
+    all_train_features = [train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim]
+    all_test_features = [test_pragmatic, test_lexical, test_pos, test_sent, test_topic, test_sim]
 
-    # Scale the features
-    scaled_train_features = utils.feature_scaling(train_features)
-    scaled_test_features = utils.feature_scaling(test_features)
+    # Choose your feature options: you can run on all possible combinations of features
+    sets_of_features = 6
+    feature_options = list(itertools.product([False, True], repeat=sets_of_features))
+    feature_options = feature_options[1:]     # skip over the option in which all entries are false
 
-    # Run the models
-    # utils.run_models(scaled_train_features, train_labels, scaled_test_features, test_labels)
+    # OR Can select just the features that you want
+    # From left to right, set to true if you want the feature to be active:
+    # [Pragmatic, Lexical-grams, POS-grams, Sentiment, LDA topics, Similarity]
+    # feature_options = [[True, True, True, True, True, True]]
 
-    end = time.time()
-    print("Completion time of the ML model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
+    for option in feature_options:
+        train_features = [{} for _ in range(len(train_tokens))]
+        test_features = [{} for _ in range(len(test_tokens))]
+        utils.print_features(option, ['Pragmatic', 'Lexical-grams', 'POS-grams', 'Sentiment', 'LDA topics', 'Similarity'])
+
+        # Make a feature selection based on the current feature_option choice
+        for i, o in enumerate(option):
+            if o:
+                for j, example in enumerate(all_train_features[i]):
+                    train_features[j] = utils.merge_dicts(train_features[j], example)
+                for j, example in enumerate(all_test_features[i]):
+                    test_features[j] = utils.merge_dicts(test_features[j], example)
+
+        # Vectorize and scale the features
+        x_train, x_test = utils.extract_features_from_dict(train_features, test_features)
+        x_train_scaled = preprocessing.scale(x_train, axis=0)
+        x_test_scaled = preprocessing.scale(x_test, axis=0)
+
+        print("Shape of the x train set ", len(x_train_scaled), len(x_train_scaled[0]))
+        print("Shape of the x test set ", len(x_test_scaled), len(x_test_scaled[0]))
+
+        utils.save_file(x_train_scaled, "train_features_scaled.txt")
+        utils.save_file(x_test_scaled, "test_features_scaled.txt")
+
+        # Run the model on the selection of features made
+        start = time.time()
+        utils.run_supervised_learning_models(x_train_scaled, y_train, x_test_scaled, y_test)
+        end = time.time()
+        print("Completion time of the ML model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
 
 
 if __name__ == "__main__":
     path = os.getcwd()[:os.getcwd().rfind('/')]
-    to_write_filename = path + '/stats/8topic_models.txt'
+    to_write_filename = path + '/stats/ml_analysis.txt'
     utils.initialize_writer(to_write_filename)
 
-    train_file = "train_sample.txt"
-    test_file = "test_sample.txt"
-    word_list = "word_list.txt"
+    train_filename = "train.txt"
+    test_filename = "test.txt"
 
-    train_tokens, filtered_train_tokens, train_pos, filtered_train_pos, train_labels, \
-        test_tokens, filtered_test_tokens, test_pos, filtered_test_pos, test_labels = \
-        data_proc.get_clean_data(train_file, test_file, word_list)
+    # Load the tokens for the train and test sets (including more filtered data)
+    train_tokens = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
+    test_tokens = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
+    train_filtered_tokens = utils.load_file(path + "/res/tokens/tokens_filtered_clean_original_" + train_filename).split("\n")
+    test_filtered_tokens = utils.load_file(path + "/res/tokens/tokens_filtered_clean_original_" + test_filename).split("\n")
+
+    # Load the pos tags for the train and test sets - extracted from the CMU Twitter Part-of-Speech Tagger
+    # according to the paper "Part-of-Speech Tagging for Twitter: Annotation, Features, and Experiments" by Gimpel et al
+    train_pos = utils.load_file(path + "/res/pos/pos_clean_original_" + train_filename).split("\n")
+    test_pos = utils.load_file(path + "/res/pos/pos_clean_original_" + test_filename).split("\n")
+    train_filtered_pos = utils.load_file(path + "/res/pos/pos_filtered_clean_original_" + train_filename).split("\n")
+    test_filtered_pos = utils.load_file(path + "/res/pos/pos_filtered_clean_original_" + test_filename).split("\n")
+
+    # Load the labels
+    train_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
+    test_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
 
     run_baseline = False
 
     if run_baseline:
         baseline(train_tokens, train_labels, test_tokens, test_labels)
     else:
-        # sets_of_features = 5
-        # feature_options = list(itertools.product([False, True], repeat=sets_of_features))
-        # feature_options = feature_options[1:]
-        feature_options = [[True, False, False, False, False]]
-        for option in feature_options:
-            utils.print_features(option, ["LDA topics", "Sentiment", "POS Bigrams", "POS Unigrams", "Pragmatic"])
-            start = time.time()
-            ml_model(train_file, test_file, train_tokens, filtered_train_tokens, train_pos,
-                     filtered_train_pos, train_labels, test_tokens, filtered_test_tokens, test_pos,
-                     filtered_test_pos, test_labels, option)
+        ml_model(train_tokens, train_filtered_tokens, train_pos, train_filtered_pos, train_labels,
+                 test_tokens, test_filtered_tokens, test_pos, test_filtered_pos, test_labels, verbose=False)
