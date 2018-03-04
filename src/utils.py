@@ -1,6 +1,5 @@
-import sys, datetime, os
+import sys, datetime, os, math
 import numpy as np
-import math
 import classifiers
 import data_processing as data_proc
 from keras.models import model_from_json
@@ -12,6 +11,7 @@ import keras.backend as K
 from collections import Counter, OrderedDict
 from pandas import read_csv
 from numpy.random import seed
+path = os.getcwd()[:os.getcwd().rfind('/')]
 
 
 def load_file(filename):
@@ -179,12 +179,15 @@ def feature_scaling(features):
     return scaled_features
 
 
-def run_models(train_features, train_labels, test_features, test_labels):
-    class_ratio = get_classes_ratio_as_dict(train_labels)
-    # class_ratio = 'balanced'
-    classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
-    classifiers.logistic_regression(train_features, train_labels, test_features, test_labels, class_ratio)
-    # classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio)
+def run_supervised_learning_models(train_features, train_labels, test_features, test_labels,
+                                   make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
+    class_ratio = get_classes_ratio_as_dict(train_labels)   # alternatively, can be set class_ratio = 'balanced'
+    classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio,
+                           make_feature_analysis, feature_names, top_features, plot_name)
+    classifiers.logistic_regression(train_features, train_labels, test_features, test_labels, class_ratio,
+                                    make_feature_analysis, feature_names, top_features, plot_name)
+    # classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio,
+    #                          make_feature_analysis, feature_names, top_features, plot_name)
 
 
 # Convert tweets into an array of indices of shape (m, max_tweet_length)
@@ -209,7 +212,7 @@ def encode_text_as_matrix(train_tweets, test_tweets, mode, max_num_words=None, l
     # Encode each example using a 'mode' scoring method (mode can be count, binary, freq, tf-idf)
     x_train = tokenizer.texts_to_matrix(train_tweets, mode=mode)
     x_test = tokenizer.texts_to_matrix(test_tweets, mode=mode)
-    return x_train, x_test
+    return tokenizer, x_train, x_test
 
 
 def encode_text_as_word_indexes(train_tweets, test_tweets, max_num_words=None, lower=False, char_level=False):
@@ -241,20 +244,17 @@ def build_random_word2vec(tweets, embedding_dim=100, variance=1):
     print("\nBuilding random vector of mappings with dimension %d..." % embedding_dim)
     word2vec_map = {}
     seed(1457873)
-    for tw in tweets:
-        for word in tw.split():
-            if '#' in word:
-                word = word[1:]
-            embedding_vector = word2vec_map.get(word)
-            if embedding_vector is None:
-                word2vec_map[word] = np.random.uniform(-variance, variance, size=(embedding_dim,))
+    words = set((' '.join(tweets)).split())
+    for word in words:
+        embedding_vector = word2vec_map.get(word)
+        if embedding_vector is None:
+            word2vec_map[word] = np.random.uniform(-variance, variance, size=(embedding_dim,))
     return word2vec_map
 
 
 def load_vectors(filename='glove.6B.100d.txt'):
     print("\nLoading vector mappings from %s..." % filename)
     word2vec_map = {}
-    path = os.getcwd()[:os.getcwd().rfind('/')]
     if 'glove' in filename:
         f = open(path + '/res/glove/' + filename)
     elif 'emoji' in filename:
@@ -306,8 +306,6 @@ def get_tweets_embeddings(tweets, vec_map, embedding_dim=100, init_unk=False, va
     for i, tw in enumerate(tweets):
         total_valid = 0
         for word in tw.split():
-            if '#' in word:
-                word = word[1:]
             embedding_vector = vec_map.get(word)
             if embedding_vector is not None:
                 tw_emb[i] = tw_emb[i] + embedding_vector * weights[word]
@@ -326,7 +324,6 @@ def get_tweets_embeddings(tweets, vec_map, embedding_dim=100, init_unk=False, va
 # Here we extract the relevant emojis (with an individual probability of being accurate over teh set threshold)
 def get_deepmojis(filename, threshold=0.05):
     print("\nGetting deep-mojis for each tweet in %s..." % filename)
-    path = os.getcwd()[:os.getcwd().rfind('/')]
     df = read_csv(path + "/res/deepmoji/" + filename, sep='\t')
     pred_mappings = load_file(path + "/res/emoji/wanted_emojis.txt").split("\n")
     emoji_pred = []
@@ -504,7 +501,7 @@ def plot_training_statistics(history, plot_name, also_plot_validation=False, acc
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
     plt.ylim([0.0, 1.0])
-    plt.savefig(plot_name + "_acc.png")
+    plt.savefig(path + plot_name + "_acc.png")
 
     # Plot Loss
     plt.figure()
@@ -513,28 +510,33 @@ def plot_training_statistics(history, plot_name, also_plot_validation=False, acc
         plt.plot(history.history['val_' + loss_mode], 'r--', label='Validation Loss')
         plt.title('Training vs Validation Loss')
     else:
-        plt.title('Training Loss')
+        plt.title('Training Loss ')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
-    plt.savefig(plot_name + "_loss.png")
+    plt.savefig(path + plot_name + "_loss.png")
 
 
 # This is used to plot the coefficients that have the greatest impact on a classifier like SVM
-def plot_coefficients(classifier, feature_names, path, top_features=20):
+# feature_names = a dictionary of indices/feature representations to words (or whatever you're extracting features from)
+def plot_coefficients(classifier, feature_names, top_features=20, plot_name="/bow_models/bow_binary_", show=False):
+    # Get the top most positive/negative coefficients
     coef = classifier.coef_.ravel()
     top_positive_coefficients = np.argsort(coef)[-top_features:]
     top_negative_coefficients = np.argsort(coef)[:top_features]
     top_coefficients = np.hstack([top_negative_coefficients, top_positive_coefficients])
+    x_names = [feature_names[feature] for feature in top_coefficients]
+
+    # Plot the coefficients
     plt.figure(figsize=(15, 5))
     colors = ['red' if c < 0 else 'blue' for c in coef[top_coefficients]]
     plt.bar(np.arange(2 * top_features), coef[top_coefficients], color=colors)
-    feature_names = np.array(feature_names)
-    plt.xticks(np.arange(0, 2 * top_features), feature_names[top_coefficients], rotation=30, ha='right')
+    plt.xticks(np.arange(0, 2 * top_features), x_names, rotation=30, ha='right')
     plt.ylabel("Coefficient Value")
-    plt.title("Visualising Top Features")
-    plt.savefig(path + "/plots/feature_stats.png")
-    # plt.show()
+    plt.title("Visualising the top %d features taken up by an SVM model" % top_features)
+    plt.savefig(path + "/plots/" + plot_name + "top%d_coefficients.png" % top_features)
+    if show:
+        plt.show()
 
 
 # Method to print the features used
@@ -556,18 +558,17 @@ def print_model_title(name):
 
 
 # Method that prints the settings for each DNN model
-def print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units,
-                   epochs, batch_size, dropout):
-    print("==================================================================\n")
-    print("Model Settings\n")
-    print("==================================================================\n")
+def print_settings(max_tweet_length, embedding_vector_dim, hidden_units,
+                   epochs, batch_size, dropout, emb_type, trainable):
+    print_model_title("Settings")
     print("Max tweet length = ", max_tweet_length)
-    print("Vocab size = ", vocab_size)
     print("Embedding vector dimension = ", embedding_vector_dim)
-    print("Hidden units ", hidden_units)
-    print("Epochs ", epochs)
-    print("Batch size ", batch_size)
-    print("Dropout ", dropout)
+    print("Hidden units = ", hidden_units)
+    print("Epochs = ", epochs)
+    print("Batch size = ", batch_size)
+    print("Dropout = ", dropout)
+    print("Embeddings type = ", emb_type)
+    print("Trainable = ", trainable)
     print("==================================================================\n")
 
 

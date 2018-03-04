@@ -11,35 +11,46 @@ def get_regularization_params(a=-1, b=1, c=3, d=1, e=5):
     return reg_range
 
 
-def grid_classifier(x_train, y_train, x_test, y_test, model, parameters):
-    grid = GridSearchCV(estimator=model, param_grid=parameters, verbose=2)
+def grid_classifier(x_train, y_train, x_test, y_test, model, parameters,
+                    make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
+    grid = GridSearchCV(estimator=model, param_grid=parameters, verbose=0)
     grid.fit(x_train, y_train)
     sorted(grid.cv_results_.keys())
     classifier = grid.best_estimator_
+    if make_feature_analysis:
+        utils.plot_coefficients(classifier, feature_names, top_features, plot_name)
     y_hat = classifier.predict(x_test)
     utils.print_statistics(y_test, y_hat)
 
 
-def linear_svm(x_train, y_train, x_test, y_test, class_ratio):
+def linear_svm(x_train, y_train, x_test, y_test, class_ratio,
+               make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
     utils.print_model_title("Linear SVM")
-    C_range = get_regularization_params()
+    # C_range = get_regularization_params()
+    C_range = [0.001, 0.01]
     parameters = {'C': C_range}
     linear_svm = LinearSVC(C=1.0, class_weight=class_ratio, penalty='l2')
-    grid_classifier(x_train, y_train, x_test, y_test, linear_svm, parameters)
+    grid_classifier(x_train, y_train, x_test, y_test, linear_svm, parameters,
+                    make_feature_analysis, feature_names, top_features, plot_name)
 
 
-def nonlinear_svm(x_train, y_train, x_test, y_test, class_ratio):
+def nonlinear_svm(x_train, y_train, x_test, y_test, class_ratio,
+                  make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
     utils.print_model_title("Nonlinear SVM")
     C_range = get_regularization_params(a=-1, b=0, c=2, d=1, e=5)
     gamma_range = get_regularization_params(a=-2, b=-1, c=2, d=1, e=5)
-    parameters = {'kernel': ['rbf'], 'C': C_range, 'gamma': gamma_range}
-    nonlinear_svm = SVC(C=1.0, class_weight=class_ratio)
-    grid_classifier(x_train, y_train, x_test, y_test, nonlinear_svm, parameters)
+    C_range = [0.001, 0.01]
+    parameters = {'kernel': ['rbf'], 'C': C_range}     # , 'gamma': gamma_range}
+    nonlinear_svm = SVC(class_weight=class_ratio)
+    grid_classifier(x_train, y_train, x_test, y_test, nonlinear_svm, parameters,
+                    make_feature_analysis, feature_names, top_features, plot_name)
 
 
-def logistic_regression(x_train, y_train, x_test, y_test, class_ratio):
+def logistic_regression(x_train, y_train, x_test, y_test, class_ratio,
+                        make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
     utils.print_model_title("Logistic Regression")
     C_range = [0.001, 0.01, 0.1, 1, 10, 100]
     parameters = {'C': C_range}
     log_regr = LogisticRegression(C=1.0, class_weight=class_ratio, penalty='l2')
-    grid_classifier(x_train, y_train, x_test, y_test, log_regr, parameters)
+    grid_classifier(x_train, y_train, x_test, y_test, log_regr, parameters,
+                    make_feature_analysis, feature_names, top_features, plot_name)

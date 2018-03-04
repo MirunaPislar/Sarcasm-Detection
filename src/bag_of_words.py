@@ -1,128 +1,129 @@
-import time
-import os
+import time, os, utils
 from pandas import DataFrame
 import data_processing as data_proc
-import utils
 import numpy as np
-import keras.backend as K
 from keras.models import Sequential
 from keras.layers import Dense
-from sklearn import metrics
-from sklearn.svm import LinearSVC
-from sklearn.feature_extraction.text import CountVectorizer
 import matplotlib.pyplot as plt
 
-results = DataFrame()
 
+def rule_based(x_train, y_train, x_test, y_test, vocab_filename):
+    # Build a vocabulary and count the sarcastic or non-sarcastic context in which a word appears
+    vocab = data_proc.build_vocabulary(vocab_filename, x_train, minimum_occurrence=10)
+    # vocab = set(' '.join([x.lower() for x in x_train]).split())
+    counts = {k: [0, 0] for k in vocab}
+    for tw, y in zip(x_train, y_train):
+        for word in tw.split():
+            word = word.lower()
+            if word in vocab:
+                if y == 0:
+                    counts[word][0] += 1
+                else:
+                    counts[word][1] += 1
 
-def analyse_features(train_set, path, vocab_filename, use_tweet_tokenize):
-    print("Analysing coefficients...")
-    tweets, labels = data_proc.process_set(train_set, vocabulary_filename=vocab_filename)
-    cv = CountVectorizer()
-    cv.fit(tweets)
-    X_train = cv.transform(tweets)
-    svm = LinearSVC()
-    svm.fit(X_train, labels)
-    utils.plot_coefficients(svm, cv.get_feature_names(), path, top_features=5)
+    # Calculate the relative weight of each word, based on the sarcastic/non-sarcastic tweets that it appears
+    weight = dict.fromkeys([k for k in counts.keys()], 0)
+    for word in counts.keys():
+        if counts[word][1] + counts[word][0] != 0:
+            weight[word] = (counts[word][1] - counts[word][0]) / (counts[word][1] + counts[word][0])
 
-
-# Fit and evaluate SVC model
-def svm(Xtrain, Ytrain, Xtest, Ytest):
-    print("\n=== Linear SVC MODEL === ")
-    eval_start_time = time.time()
-    linear_svc = LinearSVC()
-    print("Fitting Linear SVC...")
-    linear_svc.fit(Xtrain, Ytrain)
-    print("SVC evaluation...")
-    Yhat = linear_svc.predict(Xtest)
-    utils.print_statistics(Ytest, Yhat)
-    eval_end_time = time.time()
-    print("BoW with SVC completion time: %.3f s = %.3f min"
-          % ((eval_end_time - eval_start_time),(eval_end_time - eval_start_time) / 60.0))
+    # Rule-based predictions based on the previously calculated weigths
+    y_pred = []
+    for tw, y in zip(x_test, y_test):
+        score = 0.0
+        for word in tw.split():
+            word = word.lower()
+            if word in vocab:
+                score += weight[word]
+        if score >= 0.0:
+            y_pred.append(1)
+        else:
+            y_pred.append(0)
+    utils.print_statistics(y_test, y_pred)
 
 
 # Fit and evaluate feed-forward Neural Network model
-def nn(x_train, y_train, x_test, y_test, path, no_of_epochs = 50, batch_size = 32, mode='tfidf',
-       hl_activation_function='relu', ol_activation_function='sigmoid', save=True, plot_graph=True):
-    print("\n=== Feed-forward NN model ===")
-    print("List of architectural choices for this run: ")
-    print("no. of epochs = %d, batch size = %d, hidden layer activation = %s, output layer activation = %s."
-          % (no_of_epochs, batch_size, hl_activation_function, ol_activation_function))
-    eval_start_time = time.time()
+def nn_bow_model(x_train, y_train, x_test, y_test, results, mode, epochs=15, batch_size=32, hidden_units=50,
+                 save=False, plot_graph=False):
     # Build the model
+    print("\nBuilding Bow NN model...")
     model = Sequential()
-    # Use a single hidden layer with 50 neurons
-    model.add(Dense(50, input_shape=(x_train.shape[1],), activation=hl_activation_function))
-    # The output layer is a single neuron
-    model.add(Dense(1, activation=ol_activation_function))
+    model.add(Dense(hidden_units, input_shape=(x_train.shape[1],), activation='sigmoid'))
+    model.add(Dense(1, activation='sigmoid'))
     model.summary()
+
     # Train using: binary cross entropy loss, Adam implementation of Gradient Descent
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy', utils.f1_score])
-    # Fit the model on the training data
-    print("Fitting feed-forward NN model...")
-    history = model.fit(x_train, y_train, batch_size=batch_size, epochs=no_of_epochs, verbose=2)
+    history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, verbose=1)
 
     if plot_graph:
-        plot_name = path + "/plots/plot_using_tweet_tknzr_" + mode + "_mode_" + str(no_of_epochs) + "epochs.png"
-        utils.plot_statistics(history, plot_name)
+        utils.plot_training_statistics(history, "/plots/bow_models/bow_%s_mode" % mode)
 
-    # Evaluate the model so far
-    print("NN evaluation...")
-    loss, acc, f1 = model.evaluate(x_test, y_test, batch_size=batch_size, verbose=0)
+    # Evaluate the model
+    loss, acc, f1 = model.evaluate(x_test, y_test, batch_size=batch_size)
     results[mode] = [loss, acc, f1]
     classes = model.predict_classes(x_test, batch_size=batch_size)
     y_pred = [item for c in classes for item in c]
     utils.print_statistics(y_test, y_pred)
-    print("No of examples predicted correctly: ", np.sum(y_test == y_pred))
-    print("Accuracy, mine = %.3f, keras = %.3f." % (np.sum(y_test == y_pred) * 100.0 / y_test.size, acc * 100.0))
+    print("%d examples predicted correctly." % np.sum(np.array(y_test) == np.array(y_pred)))
+    print("%d examples predicted 1." % np.sum(1 == np.array(y_pred)))
+    print("%d examples predicted 0." % np.sum(0 == np.array(y_pred)))
 
     if save:
-        json_name = path + "/models/json_bow_nn_" + mode + "_mode_" + str(no_of_epochs) + "epochs.json"
-        h5_weights_name = path + "/models/h5_bow_nn_" + mode + "_mode_" + str(no_of_epochs) + "epochs.json"
+        json_name = path + "/models/bow_models/json_bow_" + mode + "_mode.json"
+        h5_weights_name = path + "/models/bow_models/h5_bow_" + mode + "_mode.json"
         utils.save_model(model, json_name=json_name, h5_weights_name=h5_weights_name)
-
-    eval_end_time = time.time()
-    print("Bow with NN completion time: %.3f s = %.3f min"
-          % ((eval_end_time - eval_start_time), (eval_end_time - eval_start_time) / 60.0))
-
-
-def bag_of_words(train_set, test_set, vocab_filename, path, word_list, mode):
-    start = time.time()
-    train_tweets, train_labels = data_proc.process_set(train_set, vocab_filename, word_list)
-    test_tweets, test_labels = data_proc.process_set(test_set, vocab_filename, word_list)
-    x_train, x_test = utils.encode_text_as_matrix(train_tweets, test_tweets, mode)
-    svm(x_train, train_labels, x_test, test_labels)
-    nn(x_train, train_labels, x_test, test_labels, path, mode=mode, no_of_epochs=10,
-       batch_size=32, save=False, plot_graph=False)
-    end = time.time()
-    print("BoW model analysis completion time: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
-
-
-def main(use_tweet_tokenize=True, make_feature_analysis=True):
-    path = os.getcwd()[:os.getcwd().rfind('/')]
-    train_set = path + "/res/train_sample.txt"
-    test_set = path + "/res/test_sample.txt"
-    word_list = path + "/red/word_list.txt"
-
-    if use_tweet_tokenize:
-        vocab_filename = path + "/res/vocabulary_tok.txt"
-    else:
-        vocab_filename = path + "/res/vocabulary.txt"
-
-    modes = ['binary', 'count', 'tfidf', 'freq']
-    for mode in modes:
-        print("\n=======================================================\n")
-        print("                      Mode :  %s" % mode)
-        print("\n=======================================================\n")
-        bag_of_words(train_set, test_set, vocab_filename, path, word_list, mode)
-    if not results.empty:
-        plt.figure()
-        results.boxplot()
-        plt.savefig(path + "/plots/all_modes_box_plot_nn_using_tokenizer.png")
-        plt.show()
-    if make_feature_analysis:
-        analyse_features(train_set, path, vocab_filename=vocab_filename, use_tweet_tokenize=use_tweet_tokenize)
 
 
 if __name__ == "__main__":
-    main()
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    to_write_filename = path + '/stats/bag_of_words_analysis.txt'
+    utils.initialize_writer(to_write_filename)
+
+    train_filename = "train.txt"
+    test_filename = "test.txt"
+    vocab_filename = path + "/res/vocabulary/vocabulary.txt"
+
+    # Load the data
+    train_tweets = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
+    test_tweets = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
+
+    # Make sure all words are lower-case
+    x_train = [t.lower() for t in train_tweets]
+    x_test = [t.lower() for t in test_tweets]
+
+    # Filtered based on vocabulary
+    train_tweets = data_proc.filter_based_on_vocab(train_tweets, vocab_filename, min_occ=10)
+    test_tweets = data_proc.filter_based_on_vocab(test_tweets, vocab_filename, min_occ=10)
+
+    # Load the labels
+    y_train = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
+    y_test = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
+
+    # A rule-based approach used here to measure and compare what is the BoW actually learning from the words
+    utils.print_model_title("Rule-based approach")
+    rule_based(train_tweets, y_train, test_tweets, y_test, vocab_filename)
+
+    modes = ['binary', 'count', 'tfidf', 'freq']
+    results = DataFrame()
+
+    for mode in modes:
+        utils.print_model_title("BoW Analysis for Mode %s" % mode)
+        #  Encode train and test data based on the currently selected mode
+        tokenizer, x_train, x_test = utils.encode_text_as_matrix(train_tweets, test_tweets, mode, lower=True)
+        word_to_indices = tokenizer.word_index
+        index_to_word = {i: w for w, i in word_to_indices.items()}
+        start = time.time()
+        utils.run_supervised_learning_models(x_train, y_train, x_test, y_test, make_feature_analysis=True,
+                                             feature_names=index_to_word, top_features=20,
+                                             plot_name="/bow_models/bow_%s_" % mode)
+        nn_bow_model(x_train, y_train, x_test, y_test, results, mode, save=False, plot_graph=True)
+        end = time.time()
+        print("BoW for %s mode completion time: %.3f s = %.3f min" % (mode, (end - start), (end - start) / 60.0))
+
+    # Plot the Bow-NN results obtained for each mode
+    if not results.empty:
+        plt.figure()
+        results.boxplot()
+        plt.savefig(path + "/plots/bow_models/bow_boxplot.png")
+        plt.show()

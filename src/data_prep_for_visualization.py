@@ -4,7 +4,6 @@ from natsort import natsorted
 from keras.models import load_model
 import utils, keras, os, shutil
 import numpy as np
-import data_processing as data_proc
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.callbacks import ModelCheckpoint
@@ -16,56 +15,34 @@ from visualize_hidden_units import get_activations, visualize_activations
 num_classes = 2
 
 
-# Prepare data for visualization -- here grammatical data
-# i.e all hashtags split, all emojis kept, everything in lower-case (see data_processing)
-def get_data():
+# Prepare data for visualization -- good idea to have grammatical data here
+# i.e hashtags split, all emojis kept, emoticons translated to emojis, everything in lower-case (see data_processing)
+def get_data(shuffle=False):
     path = os.getcwd()[:os.getcwd().rfind('/')]
+    to_write_filename = path + '/stats/data_prep_visualization.txt'
+    utils.initialize_writer(to_write_filename)
+
     train_filename = "train.txt"
     test_filename = "test.txt"
-    word_list = "word_list.txt"
-    dict_list = "word_list_freq.txt"
 
     # Load the train and test sets
     print("Loading data...")
-    train_tweets, train_labels = utils.load_data_panda(path + "/res/datasets/" + train_filename)
-    test_tweets, test_labels = utils.load_data_panda(path + "/res/datasets/" + test_filename)
+    train_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
+    test_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
 
-    # Initial clean of data
-    data_proc.initial_clean(train_tweets, path + "/res/datasets/grammatical_" + train_filename, word_list,
-                            word_file_is_dict=True, split_hashtag_method=data_proc.split_hashtags2)
-    data_proc.initial_clean(test_tweets, path + "/res/datasets/grammatical_" + test_filename, word_list,
-                            word_file_is_dict=True, split_hashtag_method=data_proc.split_hashtags2)
+    if shuffle:
+        train_data = utils.shuffle_words(train_data)
+        test_data = utils.shuffle_words(test_data)
 
-    # Get the tags corresponding to the test and train files
-    train_tokens, train_pos = \
-        data_proc.get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + train_filename,
-                                          path + "/res/tokens/grammatical_tokens_" + train_filename,
-                                          path + "/res/pos/grammatical_pos_" + train_filename)
-    test_tokens, test_pos = \
-        data_proc.get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + test_filename,
-                                          path + "/res/tokens/grammatical_tokens_" + test_filename,
-                                          path + "/res/pos/grammatical_pos_" + test_filename)
-
-    # Clean the data and brind it to the most *grammatical* form possible
-    gramm_train_tokens = data_proc.grammatical_clean \
-        (train_tokens, train_pos, path + "/res/" + dict_list,
-         path + "/res/grammatical/clean_for_grammatical_tweets_no_emoji_replacement_" + train_filename,
-         replace_emojis=False)
-    gramm_test_tokens = data_proc.grammatical_clean \
-        (test_tokens, test_pos, path + "/res/" + dict_list,
-         path + "/res/grammatical/clean_for_grammatical_tweets_no_emoji_replacement_" + test_filename,
-         replace_emojis=False)
-
-    # Make all words lower-case
-    gramm_train_tokens = [t.lower() for t in gramm_train_tokens]
-    gramm_test_tokens = [t.lower() for t in gramm_test_tokens]
+    # Load the labels
+    train_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
+    test_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
 
     # Get the max length of the train tweets
-    max_tweet_length = utils.get_max_len_info(train_tweets)
+    max_tweet_length = utils.get_max_len_info(train_data)
 
     # Convert all tweets into sequences of word indices
-    tokenizer, train_indices, test_indices = utils.encode_text_as_word_indexes(gramm_train_tokens, gramm_test_tokens,
-                                                                               lower=True)
+    tokenizer, train_indices, test_indices = utils.encode_text_as_word_indexes(train_data, test_data, lower=True)
     vocab_size = len(tokenizer.word_counts) + 1
     word_to_index = tokenizer.word_index
     print('There are %s unique tokens.' % len(word_to_index))

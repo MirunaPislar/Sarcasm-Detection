@@ -74,7 +74,21 @@ def build_emoji_sentiment_dictionary():
     return emoji_sentiment_dict
 
 
-# Replace a contraction (comming from possessives, verbs, emphasis or just bad language) by its longer form
+# Extract each tweet's emojis - obv. it's just a brute force solution (so, it's slow) but works in ALL cases
+def extract_emojis(tweets):
+    emojis = []
+    for tw in tweets:
+        tw_emojis = []
+        for word in tw:
+            chars = list(word)
+            for ch in chars:
+                if ch in emoji.UNICODE_EMOJI:
+                    tw_emojis.append(ch)
+        emojis.append(' '.join(tw_emojis))
+    return emojis
+
+
+# Replace a contraction (coming from possessives, verbs, emphasis or just bad language) by its longer form
 def replace_contracted_form(contracted_word, pos, dictionary):
     long_form = []
     if "'" in contracted_word:
@@ -257,22 +271,22 @@ def grammatical_clean(tweets, pos_tags, word_file, filename, translate_emojis=Tr
     return corrected_tweets
 
 
-def get_stopwords_list():
-    stopwords = utils.load_file(path + "/res/stopwords.txt").split("\n")
+def get_stopwords_list(filename="stopwords.txt"):
+    stopwords = utils.load_file(path + "/res/" + filename).split("\n")
     return stopwords
 
 
 def build_vocabulary(vocab_filename, lines, minimum_occurrence=1):
     if not os.path.exists(vocab_filename):
+        stopwords = get_stopwords_list(filename="stopwords_loose.txt")
         print("Building vocabulary...")
         vocabulary = Counter()
         for line in lines:
-            vocabulary.update([l.lower() for l in line])
+            vocabulary.update([l.lower() for l in line.split() if l not in stopwords])
         print("The top 10 most common words: ", vocabulary.most_common(10))
-        # Filter all words that appear too rarely or too frequent to be conclusive
+        # Filter all words that appear too rarely or too frequently to be conclusive
         vocabulary = {key: vocabulary[key] for key in vocabulary
-                      if vocabulary[key] >= minimum_occurrence
-                      and key not in vocabulary.most_common(10)}
+                      if vocabulary[key] >= minimum_occurrence}
         utils.save_file(vocabulary.keys(), vocab_filename)
         print("Vocabulary saved to file \"%s\"" % vocab_filename)
     vocabulary = set(utils.load_file(vocab_filename).split())
@@ -341,7 +355,7 @@ def filter_based_on_vocab(tweets, vocab_filename, min_occ=5):
     vocab = build_vocabulary(vocab_filename, tweets, minimum_occurrence=min_occ)
     filtered = []
     for tw in tweets:
-        filtered.append(' '.join([t for t in tw if t in vocab]))
+        filtered.append(' '.join([t for t in tw.split() if t.lower() in vocab]))
     return filtered
 
 
@@ -395,8 +409,8 @@ def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
 def cmu_probs_to_files(filename):
     # Get the tags corresponding to the test and train files
     tokens, pos = get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/" + filename,
-                                                      path + "/res/tokens/tokens_" + filename,
-                                                      path + "/res/pos/pos_" + filename)
+                                          path + "/res/tokens/tokens_" + filename,
+                                          path + "/res/pos/pos_" + filename)
     return tokens, pos
 
 
@@ -602,10 +616,10 @@ def process_tweets(tweets, word_list, split_hashtag_method):
     return clean_tweets
 
 
-def process_set(dataset_filename, vocab_filename, word_list):
+def process_set(dataset_filename, vocab_filename, word_list, min_occ=10):
     data, labels = utils.load_data_panda(dataset_filename)
     tweets = process_tweets(data, word_list, split_hashtag)
-    vocabulary = build_vocabulary(tweets, vocab_filename, minimum_occurrence=10)
+    vocabulary = build_vocabulary(tweets, vocab_filename, minimum_occurrence=min_occ)
     filtered_tweets = []
     for tweet in tweets:
         filtered_tweets.append([t for t in tweet if t in vocabulary])
@@ -736,24 +750,24 @@ def get_clean_dl_data(train_filename, test_filename, word_list):
 
 
 if __name__ == '__main__':
-    train_filename = "clean_original_train.txt"
-    test_filename = "clean_original_test.txt"
+    train_filename = "original_train.txt"
+    test_filename = "original_test.txt"
     dict_filename = "word_list.txt"
     word_filename = "word_list_freq.txt"
 
     # For a superficial clean
-    # clean_train, clean_test = get_clean_data(train_filename, test_filename, word_filename)
+    clean_train, clean_test = get_clean_data(train_filename, test_filename, word_filename)
 
     # For a more aggressive clean
-    # filtered_train_tokens, filtered_test_tokens = get_filtered_clean_data(train_filename, test_filename)
+    filtered_train_tokens, filtered_test_tokens = get_filtered_clean_data(train_filename, test_filename)
 
     # For complete removal of any twitter-specific data
-    # strict_tweets_train, strict_tweets_test = get_strict_data(train_filename, test_filename)
+    strict_tweets_train, strict_tweets_test = get_strict_data(train_filename, test_filename)
 
     # For an attempt at a grammatical clean
-    # gramm_train, gramm_test = get_grammatical_data(train_filename, test_filename, dict_filename,
-    #                                               translate_emojis=False, replace_slang=False, lowercase=False)
+    gramm_train, gramm_test = get_grammatical_data(train_filename, test_filename, dict_filename,
+                                                   translate_emojis=False, replace_slang=False, lowercase=False)
 
     # For a more aggressive attempt at a grammatical clean
-    # gramm_train, gramm_test = get_grammatical_data(train_filename, test_filename, dict_filename,
-    #                                               translate_emojis=True, replace_slang=True, lowercase=True)
+    finest_gramm_train, finest_gramm_test = get_grammatical_data(train_filename, test_filename, dict_filename,
+                                                                 translate_emojis=True, replace_slang=True, lowercase=True)

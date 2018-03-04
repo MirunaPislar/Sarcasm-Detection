@@ -1,13 +1,14 @@
-import os, sys, time
+import os, sys, time, utils
 import numpy as np
 import data_processing as data_proc
-import utils
-from keras.models import Sequential, Model
+from keras.models import Model
 from keras.optimizers import Adam
-from keras.layers import Dense, Dropout, Flatten, LSTM, GRU, Bidirectional, Input
-from keras.layers import Activation, Permute, RepeatVector, TimeDistributed, Merge, Lambda
+from keras.layers import Dense, Dropout, Flatten, LSTM, GRU, Bidirectional, Input, Multiply
+from keras.engine.topology import Layer
+from keras.layers import Activation, Permute, RepeatVector, Lambda
 from keras.utils import to_categorical
 import keras.backend as K
+from keras import initializers, activations
 from keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from keras.layers import Conv1D, MaxPooling1D, GlobalMaxPooling1D
 from keras.layers.embeddings import Embedding
@@ -18,17 +19,17 @@ seed(1337603)
 
 
 # A standard DNN used as a baseline
-def standard_dnn_model(embeddings, hidden_units=256, dropout=0.3):
-    X = Dense(hidden_units, kernel_initializer='he_normal', activation='relu')(embeddings)
+def standard_dnn_model(**kwargs):
+    X = Dense(kwargs['hidden_units'], kernel_initializer='he_normal', activation='relu')(kwargs['embeddings'])
     X = Flatten()(X)
     return X
 
 
 # A model using just convolutional neural networks
-def cnn_model(embeddings, hidden_units=256, dropout=0.3):
-    X = Conv1D(filters=hidden_units, kernel_size=3, kernel_initializer='he_normal', padding='valid',
-               activation='relu')(embeddings)
-    X = Conv1D(filters=hidden_units, kernel_size=3, kernel_initializer='he_normal', padding='valid',
+def cnn_model(**kwargs):
+    X = Conv1D(filters=kwargs['hidden_units'], kernel_size=3, kernel_initializer='he_normal', padding='valid',
+               activation='relu')(kwargs['embeddings'])
+    X = Conv1D(filters=kwargs['hidden_units'], kernel_size=3, kernel_initializer='he_normal', padding='valid',
                activation='relu')(X)
     X = GlobalMaxPooling1D()(X)
     # X = MaxPooling1D(pool_size=3)(X)
@@ -37,76 +38,127 @@ def cnn_model(embeddings, hidden_units=256, dropout=0.3):
 
 
 # A model using Long Short Term Memory (LSTM) Units
-def lstm_model(embeddings, hidden_units=256, dropout=0.3):
-    X = LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=True)(embeddings)
-    X = Dropout(dropout)(X)
-    X = LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=False)(X)
-    X = Dropout(dropout)(X)
+def lstm_model(**kwargs):
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'], return_sequences=True)(kwargs['embeddings'])
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'], return_sequences=True)(X)
+    X = Flatten()(X)
     return X
 
 
 # A model using just Gated Recurrent Units (GRU)
-def gru_model(embeddings, hidden_units=256, dropout=0.3):
-    X = GRU(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=True)(embeddings)
-    X = Dropout(dropout)(X)
-    X = GRU(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=False)(X)
-    X = Dropout(dropout)(X)
+def gru_model(**kwargs):
+    X = GRU(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+            dropout=kwargs['dropout'], return_sequences=True)(kwargs['embeddings'])
+    X = GRU(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+            dropout=kwargs['dropout'], return_sequences=False)(X)
     return X
 
 
 # A model using a bidirectional LSTM deep network
-def bidirectional_lstm_model(embeddings, hidden_units=256, dropout=0.3):
-    X = LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=True)(embeddings)
-    X = Dropout(dropout)(X)
-    X = Bidirectional(LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', return_sequences=False))(X)
-    X = Dropout(dropout)(X)
+def bidirectional_lstm_model(**kwargs):
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'], return_sequences=True)(kwargs['embeddings'])
+    X = Bidirectional(LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='sigmoid',
+                           dropout=kwargs['dropout'], return_sequences=False))(X)
     return X
 
 
 # This is the precise architecture as Ghosh has proposed in his paper "Fracking sarcasm"
-def cnn_lstm_model(embeddings, hidden_units=256, dropout=0.3):
-    X = Conv1D(hidden_units, 3, kernel_initializer='he_normal', padding='valid', activation='relu')(embeddings)
-    X = Conv1D(hidden_units, 3, kernel_initializer='he_normal', padding='valid', activation='relu')(X)
-    X = LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', dropout=dropout, return_sequences=True)(X)
-    X = LSTM(hidden_units, kernel_initializer='he_normal', activation='tanh', dropout=dropout)(X)
-    X = Dense(hidden_units, kernel_initializer='he_normal', activation='sigmoid')(X)
+def cnn_lstm_model(**kwargs):
+    X = Conv1D(kwargs['hidden_units'], 3, kernel_initializer='he_normal', padding='valid', activation='relu')(kwargs['embeddings'])
+    X = Conv1D(kwargs['hidden_units'], 3, kernel_initializer='he_normal', padding='valid', activation='relu')(X)
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'], return_sequences=True)(X)
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'])(X)
+    X = Dense(kwargs['hidden_units'], kernel_initializer='he_normal', activation='sigmoid')(X)
     return X
 
 
-# Create a Keras embedding layer of pre-trained global vectors
-def pretrained_embedding_layer(word2vec_map, word_to_index, trainable=False):
-    embedding_dim = word2vec_map["cucumber"].shape[0]
-    embedding_matrix = utils.get_embeding_matrix(word2vec_map, word_to_index, embedding_dim)
-    # Add an embedding layer but prevent the weights from being updated during training.
+# This is a pretty simple architecture for an LSTM network with a 'stateless' attention layer on top
+def stateless_attention_model(**kwargs):
+    X = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+             dropout=kwargs['dropout'], return_sequences=True)(kwargs['embeddings'])
+    attention_layer = Permute((2, 1))(X)
+    attention_layer = Dense(kwargs['max_tweet_length'], activation='softmax')(attention_layer)
+    attention_layer = Lambda(lambda x: K.mean(x, axis=1), name='dim_reduction')(attention_layer)
+    attention_layer = RepeatVector(int(X.shape[2]))(attention_layer)
+    attention_probabilities = Permute((2, 1), name='attention_probs')(attention_layer)
+    attention_layer = Multiply()([X, attention_probabilities])
+    attention_layer = Flatten()(attention_layer)
+    return attention_layer
+
+
+class MyAttentionLayer(Layer):
+    def __init__(self, **kwargs):
+        self.init = initializers.get('glorot_uniform')
+        super(MyAttentionLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        # Make sure it receives a 3D tensor with shape (batch_size, timesteps, input_dim)
+        assert len(input_shape) == 3
+        # Create a trainable weight variable for this layer.
+        self.a = self.add_weight((input_shape[-1],), initializer=self.init, name='lstm_weight')
+        self.trainable_weights = [self.a]
+        super(MyAttentionLayer, self).build(input_shape)
+
+    def call(self, x):
+        # Insert a dimension of 1 at the last index to the tensor
+        expanded_a = K.expand_dims(self.a)
+        eij = K.tanh(K.squeeze(K.dot(x, expanded_a), axis=-1))
+        ai = K.exp(eij)
+        attention_weights = ai / K.cast(K.sum(ai, axis=1, keepdims=True), K.floatx())
+        # Insert a dimension of 1 at the last index to the tensor
+        attention_weights = K.expand_dims(attention_weights)
+        context = x * attention_weights
+        return K.sum(context, axis=1)
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[-1])
+
+
+def attention_model(**kwargs):
+    lstm_out = LSTM(kwargs['hidden_units'], kernel_initializer='he_normal', activation='tanh',
+                    dropout=kwargs['dropout'], return_sequences=True)(kwargs['embeddings'])
+    attention = MyAttentionLayer()(lstm_out)
+    return attention
+
+
+def pretrained_embedding_layer(word2vec_map, word_to_index, embedding_dim, vocab_size, trainable=False):
+    embedding_matrix = utils.get_embedding_matrix(word2vec_map, word_to_index, embedding_dim)
     embedding_layer = Embedding(vocab_size, embedding_dim, trainable=trainable)
-    # Build the embedding layer, it is required before setting the weights of the embedding layer.
     embedding_layer.build((None,))
-    # Set the weights of the embedding layer to the embedding matrix.
     embedding_layer.set_weights([embedding_matrix])
     return embedding_layer
 
 
-def build_model(max_tweet_length, vocab_size, embedding_dim, hidden_units, dropout,
-                dnn_architecture, use_glove_embeddings=False):
-    # Define sentence_indices as the input of the graph (of type int, since it contains indices)
-    tweet_indices = Input((max_tweet_length,), dtype='int32')
-    if use_glove_embeddings:
-        word2vec_map = utils.load_glove_vectors(glove_filename='glove.6B.100d.txt')
-        # Create the embedding layer pretrained with GloVe Vectors
-        embedding_layer = pretrained_embedding_layer(word2vec_map, word_to_index)
-        # Propagate sentence_indices through your embedding layer, you get back the embeddings
-        embeddings = embedding_layer(tweet_indices)
+def build_embedding_layer(word2index, emb_type='glove', embedding_dim=300, max_len=40, trainable=True):
+    vocab_size = len(word2index) + 1
+    if 'glove' in emb_type:
+        word2vec_map = utils.load_vectors(filename='glove.6B.%dd.txt' % embedding_dim)
+        emb_layer = pretrained_embedding_layer(word2vec_map, word2index, embedding_dim, vocab_size, trainable=trainable)
+    elif 'emoji' in emb_type:
+        emoji2vec_map = utils.load_vectors(filename='emoji_embeddings_%dd.txt' % embedding_dim)
+        emb_layer = pretrained_embedding_layer(emoji2vec_map, word2index, embedding_dim, vocab_size, trainable=trainable)
+    elif 'random' in emb_type:
+        words = word2index.keys()
+        random2vec_map = utils.build_random_word2vec(words, embedding_dim=embedding_dim, variance=1)
+        emb_layer = pretrained_embedding_layer(random2vec_map, word2index, embedding_dim, vocab_size, trainable=trainable)
     else:
-        embedding_layer = Embedding(vocab_size, embedding_dim, input_length=max_tweet_length)
-        # Build the embedding layer, it is required before setting the weights of the embedding layer.
-        embedding_layer.build((None,))
-        embeddings = embedding_layer(tweet_indices)
-    X = dnn_architecture(embeddings, hidden_units, dropout)
-    # Propagate X through a Dense layer with softmax activation to get back a batch of 2-dimensional vectors.
+        emb_layer = Embedding(vocab_size, embedding_dim, input_length=max_len, trainable=trainable)
+        emb_layer.build((None,))
+    return emb_layer
+
+
+def build_model(max_len, embedding_layer, hidden_units, dropout, dnn_architecture):
+    tweet_indices = Input((max_len,), dtype='int32')
+    embeddings = embedding_layer(tweet_indices)
+    X = dnn_architecture(max_tweet_length=max_len, embeddings=embeddings, hidden_units=hidden_units, dropout=dropout)
+    X = Dense(hidden_units, kernel_initializer='he_normal', activation='relu')(X)
     X = Dense(2)(X)
-    # Add a softmax activation
     X = Activation('softmax')(X)
-    # Create Model instance which converts sentence_indices into X.
     model = Model(inputs=tweet_indices, outputs=X)
     return model
 
@@ -126,157 +178,138 @@ def predict(model, x_test, y_test):
 # Dictionary to look up the names and architectures for different models
 def dnn_options(name):
     return {
-        'standard': standard_dnn_model,
-        'cnn': cnn_model,
-        'lstm': lstm_model,
-        'gru': gru_model,
-        'bidirectional': bidirectional_lstm_model,
-        'cnn+lstm': cnn_lstm_model,
-        'attention': attention_model2
+        'Standard': standard_dnn_model,
+        'CNN': cnn_model,
+        'LSTM': lstm_model,
+        'GRU': gru_model,
+        'Bidirectional LSTM': bidirectional_lstm_model,
+        'CNN + LSTM': cnn_lstm_model,
+        'Stateless Attention': stateless_attention_model,
+        'Attention': attention_model,
     }[name]
 
 
-if __name__ == "__main__":
-    path = os.getcwd()[:os.getcwd().rfind('/')]
-    to_write_filename = path + '/stats/dnn_models_analysis_19feb.txt'
-    utils.initialize_writer(to_write_filename)
-
-    train_filename = "train.txt"
-    test_filename = "test.txt"
-    word_list = "word_list.txt"
-    dict_list = "word_list_freq.txt"
-
-    # Load the train and test sets
-    print("Loading data...")
-    train_tweets, train_labels = utils.load_data_panda(path + "/res/datasets/" + train_filename)
-    test_tweets, test_labels = utils.load_data_panda(path + "/res/datasets/" + test_filename)
-
-    # Initial clean of data
-    data_proc.initial_clean(train_tweets, path + "/res/datasets/grammatical_" + train_filename, word_list,
-                            word_file_is_dict=True, split_hashtag_method=data_proc.split_hashtags2)
-    data_proc.initial_clean(test_tweets, path + "/res/datasets/grammatical_" + test_filename, word_list,
-                            word_file_is_dict=True, split_hashtag_method=data_proc.split_hashtags2)
-
-    # Get the tags corresponding to the test and train files
-    train_tokens, train_pos = \
-        data_proc.get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + train_filename,
-                                          path + "/res/tokens/grammatical_tokens_" + train_filename,
-                                          path + "/res/pos/grammatical_pos_" + train_filename)
-    test_tokens, test_pos = \
-        data_proc.get_tags_for_each_tweet(path + "/res/cmu_tweet_tagger/grammatical_tweets_" + test_filename,
-                                          path + "/res/tokens/grammatical_tokens_" + test_filename,
-                                          path + "/res/pos/grammatical_pos_" + test_filename)
-
-    # Clean the data and brind it to the most *grammatical* form possible
-    gramm_train_tokens = data_proc.grammatical_clean\
-        (train_tokens, train_pos, path + "/res/" + dict_list,
-         path + "/res/grammatical/clean_for_grammatical_tweets_no_emoji_replacement_" + train_filename,
-         replace_emojis=False)
-    gramm_test_tokens = data_proc.grammatical_clean\
-        (test_tokens, test_pos, path + "/res/" + dict_list,
-         path + "/res/grammatical/clean_for_grammatical_tweets_no_emoji_replacement_" + test_filename,
-         replace_emojis=False)
-
-    # Make all words lower-case
-    gramm_train_tokens = [t.lower() for t in gramm_train_tokens]
-    gramm_test_tokens = [t.lower() for t in gramm_test_tokens]
-
-    # Get the max length of the train tweets
-    max_tweet_length = utils.get_max_len_info(train_tweets)
+def run_dl_analysis(train_tweets, test_tweets, y_train, y_test, path, shuffle=True,
+                    max_tweet_length=40, emb_type='glove', trainable=True, plot=True,
+                    dnn_models=None, epochs=50, batch_size=32, embedding_dim=300, hidden_units=256, dropout=0.5):
+    if shuffle:
+        train_tweets = utils.shuffle_words(train_tweets)
+        test_tweets = utils.shuffle_words(test_tweets)
 
     # Convert all tweets into sequences of word indices
-    tokenizer, train_indices, test_indices = utils.encode_text_as_word_indexes(gramm_train_tokens, gramm_test_tokens, lower=True)
-    vocab_size = len(tokenizer.word_counts) + 1
+    tokenizer, train_indices, test_indices = utils.encode_text_as_word_indexes(train_tweets, test_tweets, lower=True)
     word_to_index = tokenizer.word_index
     print('There are %s unique tokens.' % len(word_to_index))
 
     # Pad sequences with 0s
-    x_train = pad_sequences(train_indices, maxlen=max_tweet_length, padding='pre', truncating='pre', value=0.)
-    x_test = pad_sequences(test_indices, maxlen=max_tweet_length, padding='pre', truncating='pre', value=0.)
-
-    # Transform the output into categorical data
-    y_train = to_categorical(np.asarray(train_labels))
-    y_test = to_categorical(np.asarray(test_labels))
-
-    portion_for_dev = 20
-    x_dev = x_train[-portion_for_dev:]
-    y_dev = y_train[-portion_for_dev:]
-    x_train = x_train[:-portion_for_dev]
-    y_train = y_train[:-portion_for_dev]
-
-    print("Positive examples in train: ", sum(y_train[:, 1]))
-    print("Negative examples in train: ", sum(y_train[:, 0]))
-    print("Positive examples in dev: ", sum(y_dev[:, 1]))
-    print("Negative examples in train: ", sum(y_dev[:, 0]))
+    x_train = pad_sequences(train_indices, maxlen=max_tweet_length, padding='post', truncating='post', value=0.)
+    x_test = pad_sequences(test_indices, maxlen=max_tweet_length, padding='post', truncating='post', value=0.)
 
     print("Shape of the x train set ", x_train.shape)
-    print("Shape of the x dev set ", x_dev.shape)
     print("Shape of the x test set ", x_test.shape)
-    print("Shape of the y train set ", y_train.shape)
-    print("Shape of the y dev set ", y_dev.shape)
-    print("Shape of the y test set ", y_test.shape)
 
-    # Calculate the ratio of classes to solve the imbalance
-    ratio = utils.get_classes_ratio(train_labels[:-portion_for_dev])
+    ratio = utils.get_classes_ratio(train_labels)
 
-    plot_training_graph = False
-
-    # Build and analyse the models
-    dnn_models = ['standard', 'cnn', 'lstm', 'gru', 'bidirectional', 'cnn+lstm']
-
-    # The settings for the upcoming models
-    epochs = 100
-    batch_size = 8
-    embedding_vector_dim = 256
-    hidden_units = 256
-    dropout = 0.3
-    utils.print_settings(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units, epochs, batch_size, dropout)
+    # Define the embedding layer (which will be the same for all the models)
+    embedding_layer = build_embedding_layer(word_to_index, emb_type, embedding_dim, max_tweet_length, trainable)
 
     # Build the model
     for dnn_model in dnn_models:
         start = time.time()
+
         # Build the deep neural network architecture
-        model = build_model(max_tweet_length, vocab_size, embedding_vector_dim, hidden_units, dropout,
-                            dnn_architecture=dnn_options(dnn_model), use_glove_embeddings=True)
+        utils.print_model_title(dnn_model)
+        model = build_model(max_tweet_length, embedding_layer, hidden_units, dropout, dnn_architecture=dnn_options(dnn_model))
+
         # Compile the model
-        model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0001),
-                      metrics=['accuracy', utils.f1_score])
+        my_optimizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.99, decay=0.01)
+        model.compile(loss='categorical_crossentropy', optimizer=my_optimizer, metrics=['accuracy', utils.f1_score])
 
         # Print the model summary
         print(model.summary())
 
-        # Save an image of the current architecture
-        plot_model(model, to_file=path + '/models/dnn_models/' + dnn_model + '_model_summary.png',
-                   show_shapes=True, show_layer_names=True)
+        if plot:            # to save an image of the current architecture
+            plot_model(model, to_file=path + '/models/dnn_models/' + dnn_model.lower() + '_model_summary.png',
+                       show_shapes=True, show_layer_names=True)
 
         # Save the json representation of the model
-        open(path + '/models/dnn_models/model_json/' + dnn_model + '_model.json', 'w').write(model.to_json())
+        open(path + '/models/dnn_models/model_json/' + dnn_model.lower() + '_model.json', 'w').write(model.to_json())
 
         # Prepare the callbacks
-        save_best = ModelCheckpoint(monitor='val_loss', filepath=path + '/models/dnn_models/best/' + dnn_model +
-                                    '_model.json.hdf5', save_best_only=True, mode='min')
-        save_all = ModelCheckpoint(monitor='val_loss', filepath=path + '/models/dnn_models/checkpoints/' + dnn_model +
-                                   '_model_weights_epoch_{epoch:02d}_acc_{val_acc:.3f}_f_{val_f1_score:.3f}.hdf5',
-                                    save_best_only=False, mode='min')
-        reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1, mode='min')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, verbose=1, mode='min')
+        save_best = ModelCheckpoint(monitor='val_categorical_accuracy', save_best_only=True, mode='auto',
+                                    filepath=path + '/models/dnn_models/best/' + dnn_model.lower() + '_model.json.hdf5')
+        reduceLR = ReduceLROnPlateau(monitor='val_categorical_accuracy', factor=0.1, patience=3, verbose=1)
+        early_stopping = EarlyStopping(monitor='val_categorical_accuracy', patience=20, verbose=1)
 
         # Fit the model on the training data
         history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, shuffle=True, class_weight=ratio,
-                            validation_data=(x_dev, y_dev), callbacks=[save_best, early_stopping, reduceLR],  verbose=1)
+                            callbacks=[save_best, reduceLR, early_stopping], validation_split=0.1, verbose=1)
 
-        # If want to plot model
-        if plot_training_graph:
-            utils.plot_training_statistics(history, path + "/plots/dnn_models/" + dnn_model)
+        if plot:
+            utils.plot_training_statistics(history, "/plots/dnn_models/" + dnn_model)
 
         # Load the best model
-        model = utils.load_model(json_name=path + '/models/dnn_models/model_json/' + dnn_model + '_model.json',
-                                 h5_weights_name=path + '/models/dnn_models/best/' + dnn_model + '_model.json.hdf5')
+        model = utils.load_model(json_name=path + '/models/dnn_models/model_json/' + dnn_model.lower() + '_model.json',
+                                 h5_weights_name=path + '/models/dnn_models/best/' + dnn_model.lower() + '_model.json.hdf5')
 
         # Make prediction and evaluation
-        predict(model, x_test, test_labels)
+        predict(model, x_test, y_test)
         end = time.time()
         print("==================================================================\n")
         print("%s model analysis completion time: %.3f s = %.3f min"
               % (dnn_model, (end - start), (end - start) / 60.0))
         print("==================================================================\n")
+
+
+if __name__ == "__main__":
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    to_write_filename = path + '/stats/dnn_models_analysis.txt'
+    utils.initialize_writer(to_write_filename)
+
+    train_filename = "train_sample.txt"
+    test_filename = "test_sample.txt"
+
+    # Load the train and test sets
+    print("Loading data...")
+    train_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
+    test_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
+
+    # Load the deepmoji predictions for each tweet
+    train_deepmoji = utils.get_deepmojis("data_frame_" + train_filename[:-4] + ".csv", threshold=0.05)
+    train_deepmoji = [' '.join(e) for e in train_deepmoji]
+
+    test_deepmoji = utils.get_deepmojis("data_frame_" + test_filename[:-4] + ".csv", threshold=0.05)
+    test_deepmoji = [' '.join(e) for e in test_deepmoji]
+
+    # Load the labels
+    train_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
+    test_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
+
+    # Transform the output into categorical data
+    y_train = to_categorical(np.asarray(train_labels))
+    y_test = test_labels
+
+    # Make and print the settings for the DL model
+    max_len = utils.get_max_len_info(train_data)
+    emb_type = 'emoji'
+    trainable = True
+    plot = True
+    shuffle = True
+    epochs = 5
+    batch_size = 16
+    embedding_dim = 50
+    hidden_units = 256
+    dropout = 0.3
+    utils.print_settings(max_len, embedding_dim, hidden_units, epochs, batch_size, dropout, emb_type, trainable)
+
+    if 'emoji' in emb_type:
+        train_data = train_deepmoji
+        test_data = test_deepmoji
+
+    # List of the models to be analysed
+    models = ['Standard', 'CNN', 'LSTM', 'GRU', 'Bidirectional LSTM', 'CNN + LSTM', 'Stateless Attention', 'Attention']
+    models = ['Standard']
+
+    # Run model
+    run_dl_analysis(train_data, test_data, y_train, y_test, path, shuffle, max_len, emb_type,
+                    trainable, plot, models, epochs, batch_size, embedding_dim, hidden_units, dropout)

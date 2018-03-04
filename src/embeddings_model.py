@@ -1,10 +1,14 @@
-import os, utils
+import os, utils, time
 import data_processing as data_proc
 import numpy as np
+import bag_of_words as bow
+from pandas import DataFrame
+import matplotlib.pyplot as plt
+
 
 if __name__ == "__main__":
     path = os.getcwd()[:os.getcwd().rfind('/')]
-    to_write_filename = path + '/stats/embeddings_tests_1mar_weighted_clean_100d.txt'
+    to_write_filename = path + '/stats/embeddings_analysis.txt'
     utils.initialize_writer(to_write_filename)
 
     train_filename = "train.txt"
@@ -13,8 +17,8 @@ if __name__ == "__main__":
     word_filename = "word_list_freq.txt"
 
     # Load the data
-    x_train = utils.load_file(path + "/res/data/grammatical_clean_original_" + train_filename).split("\n")
-    x_test = utils.load_file(path + "/res/data/grammatical_clean_original_" + test_filename).split("\n")
+    x_train = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
+    x_test = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
 
     # Make sure all words are lower-case
     x_train = [t.lower() for t in x_train]
@@ -50,7 +54,7 @@ if __name__ == "__main__":
     # Setting for the embeddings
     init_unk = True
     var = None
-    weighted = True
+    weighted = False
 
     # Get embeddings for train set
     x_train_rand_word_emb = utils.get_tweets_embeddings(x_train, random_word2vec_map, embedding_dim,
@@ -99,20 +103,33 @@ if __name__ == "__main__":
     print("Shape of summed train features: ", np.array(x_train_features_sum).shape)
     print("Shape of summed test features: ", np.array(x_test_features_sum).shape)
 
-    features = {'Random word embeddings': [x_train_rand_word_emb, x_test_rand_word_emb],
-                'Just word embeddings': [x_train_word_emb, x_test_word_emb],
-                'Just present emojis': [x_train_emoji_emb, x_test_emoji_emb],
-                'Just deepmojis': [x_train_deepemoji_emb, x_test_deepemoji_emb],
-                'All emojis': [x_train_all_emoji_emb, x_test_all_emoji_emb],
-                'Words + all emojis concat': [x_train_features_concat, x_test_features_concat],
-                'Words + all emojis summed': [x_train_features_sum, x_test_features_sum]
-                }
-    import time
+    features = {
+        'Random emb': [x_train_rand_word_emb, x_test_rand_word_emb],
+        'Just word emb': [x_train_word_emb, x_test_word_emb],
+        'Present emojis': [x_train_emoji_emb, x_test_emoji_emb],
+        'Deepmojis': [x_train_deepemoji_emb, x_test_deepemoji_emb],
+        'All emojis': [x_train_all_emoji_emb, x_test_all_emoji_emb],
+        'All concat': [x_train_features_concat, x_test_features_concat],
+        'All summed': [x_train_features_sum, x_test_features_sum]
+    }
+
+    results = DataFrame()
     for k, v in features.items():
-        print("===================================================================")
-        print("\nNow testing: %s\n" % k)
-        print("===================================================================")
+        utils.print_model_title("SVM analysis for: " + k)
         start = time.time()
         utils.run_models(v[0], y_train, v[1], y_test)
         end = time.time()
-        print("Completion time of the ML model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
+        print("Completion time of the %s SVM model: %.3f s = %.3f min" % (k, (end - start), (end - start) / 60.0))
+        start = time.time()
+        utils.print_model_title("NN analysis for: " + k)
+        mode = '_'.join([w.lower() for w in k.split()])
+        bow.nn_bow_model(x_train_rand_word_emb, y_train, x_test_rand_word_emb, y_test, results, mode, epochs=25,
+                         batch_size=32, hidden_units=256, save=False, plot_graph=False)
+        end = time.time()
+        print("Completion time of the %s NN model: %.3f s = %.3f min" % (k, (end - start), (end - start) / 60.0))
+    # Plot the Bow-NN results obtained for each mode
+    if not results.empty:
+        plt.figure()
+        results.boxplot()
+        plt.savefig(path + "/plots/embeddings_dnn_300d_clean_tokens_boxplot_modified.png")
+        plt.show()

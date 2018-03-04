@@ -19,48 +19,18 @@ from keras.callbacks import ModelCheckpoint
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
+
 # Define the path to the resources and make some settings
 path = os.getcwd()[:os.getcwd().rfind('/')]
 emoji_positive = path + '/res/emoji/emoji_positive_samples.txt'
 emoji_negative = path + '/res/emoji/emoji_negative_samples.txt'
 emoji_freq = path + '/res/emoji/emoji_frequencies.txt'
-embedding_dim = 300         # valid: 50, 100, 200, 300
-glove_filename = 'glove.6B.%dd.txt' % embedding_dim
 maximum_length = 15
-emoji2vec_visualization = path + '/models/emoji2vec/emoji_emb_viz.csv'
-emoji2vec_weights = path + '/models/emoji2vec/weights.h5'
-emoji2vec_embeddings = path + '/models/emoji2vec/emoji_embeddings.txt'
-
-
-# Compute the similarity of 2 vectors, both of shape (n, )
-def cosine_similarity(u, v):
-    dot = np.dot(u, v)
-    norm_u = np.sqrt(np.sum(u ** 2))
-    norm_v = np.sqrt(np.sum(v ** 2))
-    cosine_distance = dot / (norm_u * norm_v)
-    return cosine_distance
-
-
-# Performs the word analogy task: a is to b as c is to ____.
-def complete_analogy(emoji_a, emoji_b, emoji_c, emoji2vec):
-    # Get the emoji embeddings
-    e_a, e_b, e_c = emoji2vec[emoji_a], emoji2vec[emoji_b], emoji2vec[emoji_c]
-
-    emojis = emoji2vec.keys()
-    max_cosine_sim = -100
-    best_emoji = None
-
-    for e in emojis:
-        # The best emoji match shouldn't be one of the input emojis, so pass on them.
-        if e in [emoji_a, emoji_b, emoji_c]:
-            continue
-        # Compute cosine similarity between the vector (e_b - e_a) and the vector ((w's vector representation) - e_c)
-        cosine_sim = cosine_similarity(e_b - e_a, emoji2vec[e] - e_c)
-        if cosine_sim > max_cosine_sim:
-            max_cosine_sim = cosine_sim
-            best_emoji = e
-    print(str.format('{} - {} + {} = {}', emoji_a, emoji_b, emoji_c, best_emoji))
-    return best_emoji
+embedding_dim = 100         # valid: 50, 100, 200, 300
+glove_filename = 'glove.6B.%dd.txt' % embedding_dim
+emoji2vec_visualization = path + '/models/emoji2vec/emoji_emb_viz_%dd.csv' % embedding_dim
+emoji2vec_weights = path + '/models/emoji2vec/weights_%dd.h5' % embedding_dim
+emoji2vec_embeddings = path + '/models/emoji2vec/emoji_embeddings_%dd.txt' % embedding_dim
 
 
 # Get a list of emojis ordered by their frequency of appearing in tweets
@@ -92,7 +62,7 @@ def visualize_emoji_embeddings(top=800):
     plt.title('t-SNE Visualization of Emoji Embeddings')
     plt.grid()
     plt.show()
-    plt.savefig(path + "/plots/emoji2vec/emoji_vis.png")
+    plt.savefig(path + "/plots/emoji2vec/emoji_%dd_vis.png" % embedding_dim)
 
 
 # Define emoji2vec DNN model
@@ -111,8 +81,9 @@ def emoji2vec_model(embedding_matrix, emoji_vocab_size, word_vocab_size):
     return emoji_model, word_model, model
 
 
-if __name__ == "__main__":
-    # Load the emoji datasets - both true and false descriptions
+# Solely based on emoji descriptions, obtain the emoji2vec representations for all possible emojis
+def get_emoji2vec():
+    # Load the emoji data - both true and false descriptions
     pos_emojis = read_csv(emoji_positive, sep='\t', engine='python', encoding='utf_8', names=['description', 'emoji'])
     neg_emojis = read_csv(emoji_negative, sep='\t', engine='python', encoding='utf_8', names=['description', 'emoji'])
 
@@ -149,10 +120,10 @@ if __name__ == "__main__":
 
     # Load GLoVe word embeddings
     print("Loading GLoVe...")
-    word2vec_map = utils.load_glove_vectors(glove_filename)
+    word2vec_map = utils.load_vectors(glove_filename)
 
     # Prepare the word-embedding matrix
-    embedding_matrix = utils.get_embeding_matrix(word2vec_map, word_to_index, embedding_dim, init_unk=False)
+    embedding_matrix = utils.get_embedding_matrix(word2vec_map, word_to_index, embedding_dim, init_unk=False)
     print('Number of non-existent word-embeddings: %d' % np.sum(np.sum(embedding_matrix, axis=1) == 0))
 
     # Prepare training data
@@ -160,8 +131,8 @@ if __name__ == "__main__":
     train_words = pad_sequences(word_sequences, maxlen=maximum_length)
     labels = np.array([[0, 1] if label == 0 else [1, 0] for label in all_emojis['label'].values])
 
-    print('Shape of emoji data tensor:', train_emoji.shape)
-    print('Shape of description data tensor:', train_words.shape)
+    print('Shape of emoji data:', train_emoji.shape)
+    print('Shape of emoji description data:', train_words.shape)
     print('Shape of label tensor:', labels.shape)
     print('Number of emojis:', emoji_vocab_size)
 
@@ -178,47 +149,55 @@ if __name__ == "__main__":
         history = model.fit([train_emoji, train_words], labels, epochs=50,
                             validation_split=0.1, verbose=1, callbacks=callbacks)
         # Plot accuracy and loss
-        utils.plot_training_statistics(history, path + "/plots/emoji2ec/emoji2vec", also_plot_validation=True,
-                                       acc_mode='categorical_accuracy', loss_mode='loss')
+        utils.plot_training_statistics(history, path + "/plots/emoji2vec/emoji2vec_%dd" % embedding_dim,
+                                       also_plot_validation=True, acc_mode='categorical_accuracy', loss_mode='loss')
 
     # Load the pre-trained weights and get the embeddings
     print("Loading the trained weights of the emoji2vec model...")
     model.load_weights(emoji2vec_weights)
     weights = emoji_model.layers[0].get_weights()[0]
 
-    # Get the emoji embeddings and save them to file
-    embeddings = DataFrame(weights[1:])
-    embeddings = concat([grouped_by_description['emoji'], embeddings], axis=1)
-    embeddings.to_csv(emoji2vec_embeddings, sep=' ', header=False, index=False)
-
     # Get the emoji2vec mapping
     emoji2vec = {}
     for e, w in zip(grouped_by_description['emoji'], weights[1:]):
         emoji2vec[e] = w
 
+    # Get the emoji embeddings and save them to file
+    if not os.path.exists(emoji2vec_embeddings):
+        embeddings = DataFrame(weights[1:])
+        embeddings = concat([grouped_by_description['emoji'], embeddings], axis=1)
+        embeddings.to_csv(emoji2vec_embeddings, sep=' ', header=False, index=False)
+
     # Get the t-SNE representation
-    tsne = TSNE(n_components=2, perplexity=30, init='pca', n_iter=5000)
-    # Following are the exact tsne settings used in the emoji visualization in the original paper
-    # tsne = TSNE(perplexity=50, n_components=2, init='random', n_iter=300000, early_exaggeration=1.0,
-    #             n_iter_without_progress=1000)
-    trans = tsne.fit_transform(weights)
+    if not os.path.exists(emoji2vec_visualization):
+        tsne = TSNE(n_components=2, perplexity=30, init='pca', n_iter=5000)
+        # Following are the exact tsne settings used in the emoji visualization in the original paper
+        # tsne = TSNE(perplexity=50, n_components=2, init='random', n_iter=300000, early_exaggeration=1.0,
+        #             n_iter_without_progress=1000)
+        trans = tsne.fit_transform(weights)
 
-    # Save the obtained emoji embeddings
-    visualization = DataFrame(trans[1:], columns=['x', 'y'])
-    visualization['emoji'] = grouped_by_description['emoji'].values
-    visualization.to_csv(emoji2vec_visualization)
+        # Save the obtained emoji visualization
+        visualization = DataFrame(trans[1:], columns=['x', 'y'])
+        visualization['emoji'] = grouped_by_description['emoji'].values
+        visualization.to_csv(emoji2vec_visualization)
 
-    # Visualize the embeddings as a tsne figure
-    visualization.plot('x', 'y', kind='scatter', grid=True)
-    plt.savefig(path + '/plots/emoji2vec/tsne.pdf')
+        # Visualize the embeddings as a tsne figure
+        visualization.plot('x', 'y', kind='scatter', grid=True)
+        plt.savefig(path + '/plots/emoji2vec/tsne_%dd.pdf' % embedding_dim)
+
+    return emoji2vec
+
+
+if __name__ == "__main__":
+    emoji2vec = get_emoji2vec()
 
     # Plot an emoji map
     visualize_emoji_embeddings()
 
     # Get some intuition whether the model is good by seeing what analogies it can make based on what it learnt
-    complete_analogy('👑', '🚹', '🚺', emoji2vec)
-    complete_analogy('💵', '🇺🇸', '🇬🇧', emoji2vec)
-    complete_analogy('💵', '🇺🇸', '🇪🇺', emoji2vec)
-    complete_analogy('👦', '👨', '👩', emoji2vec)
-    complete_analogy('👪', '👦', '👧', emoji2vec)
-    complete_analogy('🕶', '☀️', '⛈', emoji2vec)
+    utils.complete_analogy('👑', '🚹', '🚺', emoji2vec)
+    utils.complete_analogy('💵', '🇺🇸', '🇬🇧', emoji2vec)
+    utils.complete_analogy('💵', '🇺🇸', '🇪🇺', emoji2vec)
+    utils.complete_analogy('👦', '👨', '👩', emoji2vec)
+    utils.complete_analogy('👪', '👦', '👧', emoji2vec)
+    utils.complete_analogy('🕶', '☀️', '⛈', emoji2vec)
