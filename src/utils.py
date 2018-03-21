@@ -10,7 +10,7 @@ from keras.preprocessing.text import Tokenizer
 import keras.backend as K
 from collections import Counter, OrderedDict
 from pandas import read_csv
-from numpy.random import seed
+from numpy.random import seed, shuffle
 path = os.getcwd()[:os.getcwd().rfind('/')]
 
 
@@ -18,7 +18,7 @@ def load_file(filename):
     file = open(filename, 'r')
     text = file.read()
     file.close()
-    return text
+    return text.split("\n")
 
 
 def save_file(lines, filename):
@@ -28,14 +28,14 @@ def save_file(lines, filename):
     file.close()
 
 
-def load_data_panda(filename, shuffle=False, seed=137):
+def load_data_panda(filename, shuffle_sets=False):
     print("Reading data from file %s..." % filename)
     data = read_csv(filename, sep="\t+", header=None, engine='python')
     data.columns = ["Set", "Label", "Text"]
     print('The shape of this data set is: ', data.shape)
     x_train, labels_train = np.array(data["Text"]), np.array(data["Label"])
-    if shuffle:
-        np.random.seed(seed)
+    if shuffle_sets:
+        np.random.seed(12346598)
         indices = np.arange(len(x_train))
         np.random.shuffle(indices)
         x_train = x_train[indices]
@@ -104,37 +104,51 @@ def merge_dicts(*dict_args):
     return result
 
 
-def batch_generator(X, y, batch_size):
-    # Primitive batch generator
+# Just a primitive batch generator
+def batch_generator(x, y, batch_size):
     seed(1655483)
-    size = X.shape[0]
-    X_copy = X.copy()
+    size = x.shape[0]
+    x_copy = x.copy()
     y_copy = y.copy()
     indices = np.arange(size)
     np.random.shuffle(indices)
-    X_copy = X_copy[indices]
+    x_copy = x_copy[indices]
     y_copy = y_copy[indices]
     i = 0
     while True:
         if i + batch_size <= size:
-            yield X_copy[i:i + batch_size], y_copy[i:i + batch_size]
+            yield x_copy[i:i + batch_size], y_copy[i:i + batch_size]
             i += batch_size
         else:
             i = 0
             indices = np.arange(size)
             np.random.shuffle(indices)
-            X_copy = X_copy[indices]
+            x_copy = x_copy[indices]
             y_copy = y_copy[indices]
             continue
 
 
-# Get some idea about the max length of the train tweets
-def get_max_len_info(tweets):
-    print("==================================================================\n")
+def shuffle_data(labels, n):
+    seed(532908)
+    indices = range(len(labels))
+    pos_indices = [i for i in indices if labels[i] == 1]
+    neg_indices = [i for i in indices if labels[i] == 0]
+    shuffle(pos_indices)
+    shuffle(neg_indices)
+    top_n = pos_indices[0:n] + neg_indices[0:n]
+    shuffle(top_n)
+    return top_n
+
+
+# Get some idea about the max and mean length of the tweets (useful for deciding on the sequence length)
+def get_max_len_info(tweets, average=False):
     sum_of_length = sum([len(l.split()) for l in tweets])
-    print("Mean of train tweets: ", sum_of_length / float(len(tweets)))
+    avg_tweet_len = sum_of_length / float(len(tweets))
+    print("Mean of train tweets: ", avg_tweet_len)
     max_tweet_len = len(max(tweets, key=len).split())
     print("Max tweet length is = ", max_tweet_len)
+    if average:
+        return avg_tweet_len
     return max_tweet_len
 
 
@@ -182,10 +196,10 @@ def feature_scaling(features):
 def run_supervised_learning_models(train_features, train_labels, test_features, test_labels,
                                    make_feature_analysis=False, feature_names=None, top_features=0, plot_name="coeff"):
     class_ratio = get_classes_ratio_as_dict(train_labels)   # alternatively, can be set class_ratio = 'balanced'
-    classifiers.linear_svm(train_features, train_labels, test_features, test_labels, class_ratio,
-                           make_feature_analysis, feature_names, top_features, plot_name)
-    classifiers.logistic_regression(train_features, train_labels, test_features, test_labels, class_ratio,
-                                    make_feature_analysis, feature_names, top_features, plot_name)
+    classifiers.linear_svm_grid(train_features, train_labels, test_features, test_labels, class_ratio,
+                                make_feature_analysis, feature_names, top_features, plot_name)
+    classifiers.logistic_regression_grid(train_features, train_labels, test_features, test_labels, class_ratio,
+                                         make_feature_analysis, feature_names, top_features, plot_name)
     # classifiers.nonlinear_svm(train_features, train_labels, test_features, test_labels, class_ratio,
     #                          make_feature_analysis, feature_names, top_features, plot_name)
 
@@ -226,19 +240,6 @@ def encode_text_as_word_indexes(train_tweets, test_tweets, max_num_words=None, l
     return tokenizer, x_train, x_test
 
 
-def encode_text_as_one_hot_encodings(train_tweets, test_tweets, max_num_words=None, lower=False, char_level=False):
-    # Create the tokenizer
-    tokenizer = Tokenizer(num_words=max_num_words, filters='', lower=lower, split=" ", char_level=char_level)
-    # Fit the tokenizer on the documents
-    tokenizer.fit_on_texts(train_tweets)
-    # Get the vocabulary size
-    vocab_size = len(tokenizer.word_counts)
-    # Encode each example as a one-hot vector
-    x_train = [tokenizer.one_hot(train_example, vocab_size * 1.5) for train_example in train_tweets]
-    x_test = [tokenizer.one_hot(test_example, vocab_size * 1.5) for test_example in test_tweets]
-    return x_train, x_test, vocab_size
-
-
 # Build random vector mappings of a vocabulary
 def build_random_word2vec(tweets, embedding_dim=100, variance=1):
     print("\nBuilding random vector of mappings with dimension %d..." % embedding_dim)
@@ -252,13 +253,14 @@ def build_random_word2vec(tweets, embedding_dim=100, variance=1):
     return word2vec_map
 
 
+# Load a set of pre-trained embeddings (can be GLoVe or emoji2vec)
 def load_vectors(filename='glove.6B.100d.txt'):
     print("\nLoading vector mappings from %s..." % filename)
     word2vec_map = {}
-    if 'glove' in filename:
-        f = open(path + '/res/glove/' + filename)
-    elif 'emoji' in filename:
+    if 'emoji' in filename:
         f = open(path + '/models/emoji2vec/' + filename)
+    else:   # by default, load the GLoVe embeddings
+        f = open(path + '/res/glove/' + filename)
     for line in f:
         values = line.split()
         word = values[0]
@@ -325,7 +327,7 @@ def get_tweets_embeddings(tweets, vec_map, embedding_dim=100, init_unk=False, va
 def get_deepmojis(filename, threshold=0.05):
     print("\nGetting deep-mojis for each tweet in %s..." % filename)
     df = read_csv(path + "/res/deepmoji/" + filename, sep='\t')
-    pred_mappings = load_file(path + "/res/emoji/wanted_emojis.txt").split("\n")
+    pred_mappings = load_file(path + "/res/emoji/wanted_emojis.txt")
     emoji_pred = []
     for index, row in df.iterrows():
         tw_pred = []
@@ -335,6 +337,19 @@ def get_deepmojis(filename, threshold=0.05):
         emoji_pred.append([pred_mappings[t] for t in tw_pred])
     print("Couldn't find a strong emoji prediction for %d emojis" % len([pred for pred in emoji_pred if pred == []]))
     return emoji_pred
+
+
+# Just a dummy function that I used for the demo (printing the predicted deepmojis for each tweet in my demo set)
+def get_demo_emojis(filename, data):
+    deepmojis = load_file(path + "/res/datasets/demo/deepmoji_" + filename)
+    emojis = data_proc.extract_emojis(data)
+    all_emojis = [deepmojis[i] if emojis[i] == ''
+                  else emojis[i] + ' ' + deepmojis[i] for i in range(len(emojis))]
+    all_emojis = [' '.join(set(e.split())) for e in all_emojis]
+    for d, e in zip(data[20:40], all_emojis[20:40]):
+        print("Tweet: ", d)
+        print("Predicted emojis: ", e, "\n")
+    return all_emojis
 
 
 # Calculate the variance of an embedding (like glove, word2vec, emoji2vec, etc)
@@ -382,23 +397,42 @@ def cosine_similarity(u, v):
     return cosine_distance
 
 
+# Convert emojis to unicode representations by removing any variation selectors
+# Info: http://www.unicode.org/charts/PDF/UFE00.pdf
+def convert_emoji_to_unicode(emoji):
+    unicode_emoji = emoji.encode('unicode-escape')
+    find1 = unicode_emoji.find(b"\\ufe0f")
+    unicode_emoji = unicode_emoji[:find1] if find1 != -1 else unicode_emoji
+    find2 = unicode_emoji.find(b"\\ufe0e")
+    unicode_emoji = unicode_emoji[:find2] if find2 != -1 else unicode_emoji
+    return unicode_emoji
+
+
 # Performs the word analogy task: a is to b as c is to ____.
-def complete_analogy(a, b, c, vec_map):
-    # Get the vector embeddings
+def make_analogy(a, b, c, vec_map):
+    a = convert_emoji_to_unicode(a)
+    b = convert_emoji_to_unicode(b)
+    c = convert_emoji_to_unicode(c)
+
     e_a, e_b, e_c = vec_map[a], vec_map[b], vec_map[c]
+
     max_cosine_sim = -100
     best = None
+    best_list = {}
     for v in vec_map.keys():
         # The best match shouldn't be one of the inputs, so pass on them.
         if v in [a, b, c]:
             continue
         # Compute cosine similarity between the vector (e_b - e_a) and the vector ((w's vector representation) - e_c)
         cosine_sim = cosine_similarity(e_b - e_a, vec_map[v] - e_c)
+        best_list[v] = cosine_sim
         if cosine_sim > max_cosine_sim:
             max_cosine_sim = cosine_sim
             best = v
-    print(str.format('{} - {} + {} = {}', a, b, c, best))
-    return best
+    sorted_keys = sorted(best_list, key=best_list.get, reverse=True)
+    print("Top 5 most similar emojis: ", [r.decode('unicode-escape') for r in sorted_keys[:5]])
+    print(str.format('{} - {} + {} = {}', a.decode('unicode-escape'), b.decode('unicode-escape'),
+                     c.decode('unicode-escape'), best.decode('unicode-escape')), "\n\n")
 
 
 # Get the Euclidean distance between two vectors
@@ -412,9 +446,11 @@ def get_similarity_measures(tweet, vec_map, weighted=False, verbose=True):
     # Filter a bit the tweet so that no punctuation and no stopwords are included
     stopwords = data_proc.get_stopwords_list()
     filtered_tweet = list(set([w.lower() for w in tweet.split()
-                      if w.isalpha() and w not in stopwords and w.lower() in vec_map.keys()]))
+                               if w.isalnum() and w not in stopwords and w.lower() in vec_map.keys()]))
     # Compute similarity scores between any 2 words in filtered tweet
     similarity_scores = []
+    max_words = []
+    min_words = []
     max_score = -100
     min_score = 100
     for i in range(len(filtered_tweet) - 1):
@@ -444,8 +480,7 @@ def get_similarity_measures(tweet, vec_map, weighted=False, verbose=True):
     return max_score, min_score
 
 
-# Custom metric function
-# Taken from https://stackoverflow.com/questions/43547402/how-to-calculate-f1-macro-in-keras
+# Custom metric function adjusted from https://stackoverflow.com/questions/43547402/how-to-calculate-f1-macro-in-keras
 def f1_score(y_true, y_pred):
     # Recall metric. Only computes a batch-wise average of recall,
     # a metric for multi-label classification of how many relevant items are selected.
@@ -502,6 +537,7 @@ def plot_training_statistics(history, plot_name, also_plot_validation=False, acc
     plt.legend(loc='center right')
     plt.ylim([0.0, 1.0])
     plt.savefig(path + plot_name + "_acc.png")
+    print("Plot for accuracy saved to %s" % (path + plot_name + "_acc.png"))
 
     # Plot Loss
     plt.figure()
@@ -515,11 +551,12 @@ def plot_training_statistics(history, plot_name, also_plot_validation=False, acc
     plt.xlabel('Epoch')
     plt.legend(loc='center right')
     plt.savefig(path + plot_name + "_loss.png")
+    print("Plot for loss saved to %s" % (path + plot_name + "_loss.png"))
 
 
 # This is used to plot the coefficients that have the greatest impact on a classifier like SVM
 # feature_names = a dictionary of indices/feature representations to words (or whatever you're extracting features from)
-def plot_coefficients(classifier, feature_names, top_features=20, plot_name="/bow_models/bow_binary_", show=False):
+def plot_coefficients(classifier, feature_names, top_features=20, plot_name="/bow_models/bow_binary_"):
     # Get the top most positive/negative coefficients
     coef = classifier.coef_.ravel()
     top_positive_coefficients = np.argsort(coef)[-top_features:]
@@ -534,9 +571,19 @@ def plot_coefficients(classifier, feature_names, top_features=20, plot_name="/bo
     plt.xticks(np.arange(0, 2 * top_features), x_names, rotation=30, ha='right')
     plt.ylabel("Coefficient Value")
     plt.title("Visualising the top %d features taken up by an SVM model" % top_features)
-    plt.savefig(path + "/plots/" + plot_name + "top%d_coefficients.png" % top_features)
-    if show:
-        plt.show()
+    to_save_filename = path + "/plots/" + plot_name + "top%d_coefficients.png" % top_features
+    plt.savefig(to_save_filename)
+    print("Coefficients' visualisation saved to %s\n" % to_save_filename)
+
+
+# Plot the results obtained for different settings (stored in a Data Frame) as a boxplot
+def boxplot_results(results, filename):
+    if not results.empty:
+        plt.figure()
+        results.boxplot()
+        to_save_filename = path + "/plots/bow_models/" + filename
+        plt.savefig(to_save_filename)
+        print("Boxplot saved to %s " % to_save_filename)
 
 
 # Method to print the features used
@@ -548,6 +595,35 @@ def print_features(feature_options, feature_names):
         line_new = '{:>30}  {:>10}'.format(name, value)
         print(line_new)
     print("\n==================================================================\n")
+
+
+def print_feature_values(current_set, pragmatic, lexical, pos, sent, topic, sim):
+    i = 0
+    print("\n=========================    %s FEATURES    =========================\n" % current_set)
+    for a, b, c, d, e, f in zip(pragmatic, lexical, pos, sent, topic, sim):
+        print("\nTweet ", i)
+        print("Pragmatic:\n", a)
+        print("Lexical:\n", b)
+        print("POS:\n", c)
+        print("Sentiment:\n", d)
+        print("Topic:\n", e)
+        print("Similarity:\n", f)
+        print("\n==================================================================\n")
+        i += 1
+
+
+def print_feature_values_demo(tweets, pragmatic, lexical, pos, sent, topic, sim):
+    print("\n=========================    FEATURE VALUES    =========================\n")
+    for tw, a, b, c, d, e, f in zip(tweets[:20], pragmatic[:20], lexical[:20], pos[:20],
+                                    sent[:20], topic[:20], sim[:20]):
+        print("Tweet:\t", tw)
+        print("Pragmatic:\t", a)
+        print("Lexical:\t", b)
+        print("POS:\t", c)
+        print("Sentiment:\t", d)
+        print("Topic:\t", e)
+        print("Similarity:\t", f)
+        print("\n==================================================================\n")
 
 
 # Method to print the header of the currently running model
@@ -586,7 +662,6 @@ class writer:
 
 
 def initialize_writer(to_write_filename):
-    saved = sys.stdout
     fout = open(to_write_filename, 'wt')
     sys.stdout = writer(sys.stdout, fout)
     print("Current date and time: %s\n" % str(datetime.datetime.now()))

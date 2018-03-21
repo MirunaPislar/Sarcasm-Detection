@@ -9,11 +9,12 @@ from vocab_helpers import contractions, implicit_emoticons, slang, \
     wikipedia_emoticons, emotiocons_to_emojis
 
 path = os.getcwd()[:os.getcwd().rfind('/')]
+dict_filename = "word_list.txt"
+word_filename = "word_list_freq.txt"
 
 
 def build_subj_dicionary(lines):
     subj_dict = dict()
-    lines = lines.split("\n")
     for line in lines:
         splits = line.split(' ')
         if len(splits) == 6:
@@ -30,15 +31,13 @@ def build_subj_dicionary(lines):
 
 
 def get_subj_lexicon():
-    filename = path + "/res/subjectivity_lexicon.tff"
-    lexicon = utils.load_file(filename)
+    lexicon = utils.load_file(path + "/res/subjectivity_lexicon.tff")
     subj_dict = build_subj_dicionary(lexicon)
     return subj_dict
 
 
 def get_emoji_dictionary():
-    filename = path + "/res/emoji/emoji_list.txt"
-    emojis = utils.load_file(filename).split("\n")
+    emojis = utils.load_file(path + "/res/emoji/emoji_list.txt")
     emoji_dict = {}
     for line in emojis:
         line = line.split(" ", 1)
@@ -52,7 +51,7 @@ def build_emoji_sentiment_dictionary():
     new_emoji_sentiment_filename = path + "/res/emoji/emoji_sentiment_dictionary.txt"
     if not os.path.exists(new_emoji_sentiment_filename):
         filename = path + "/res/emoji/emoji_sentiment_raw.txt"
-        emojis = utils.load_file(filename).split("\n")[1:]
+        emojis = utils.load_file(filename)[1:]
         lines = []
         for line in emojis:
             line = line.split(",")
@@ -65,7 +64,7 @@ def build_emoji_sentiment_dictionary():
             lines.append(str(emoji) + "\t" + str(negative) + "\t" + str(neutral)
                          + "\t" + str(positive) + "\t" + description.lower())
             utils.save_file(lines, new_emoji_sentiment_filename)
-    emoji_sentiment_data = utils.load_file(new_emoji_sentiment_filename).split("\n")
+    emoji_sentiment_data = utils.load_file(new_emoji_sentiment_filename)
     emoji_sentiment_dict = {}
     for line in emoji_sentiment_data:
         line = line.split("\t")
@@ -244,6 +243,7 @@ def grammatical_clean(tweets, pos_tags, word_file, filename, translate_emojis=Tr
                 elif t.lower() in emotiocons_to_emojis:
                     translated_emoticon = emotiocons_to_emojis[t.lower()]
                     corrected_tweet.append(translated_emoticon)
+                    # print("Replaced emoticon from ", t, " to ", translated_emoticon)
                     continue
                 # Replace all slang (or twitter abbreviations) to explicit form
                 if replace_slang and t.lower() in slang.keys():
@@ -252,27 +252,24 @@ def grammatical_clean(tweets, pos_tags, word_file, filename, translate_emojis=Tr
                     corrected_tweet.extend(slang_translation.split())
                     continue
                 if t != '':
+                    # print("Corrected tweet ", t)
                     corrected_tweet.append(t)
             corrected_tweets.append(corrected_tweet)
         # Save the grammatical set to filename
         lines = [' '.join(line) for line in corrected_tweets]
-        """
         # Used for comparison between previous data and the cleaned, grammatical data
         for dirty, corrected in zip(tweets, lines):
-            print(dirty)
-            print(corrected)
-            print()
-        """
+            print("Dirty:\t%s\nGr\t%s\nammatical:" % (dirty, corrected))
         utils.save_file(lines, filename)
         return lines
     # Load grammatical set from filename
-    # corrected_tweets = [[word for word in line.split()] for line in utils.load_file(filename).split("\n")]
-    corrected_tweets = [line for line in utils.load_file(filename).split("\n")]
+    # corrected_tweets = [[word for word in line.split()] for line in utils.load_file(filename)]
+    corrected_tweets = [line for line in utils.load_file(filename)]
     return corrected_tweets
 
 
 def get_stopwords_list(filename="stopwords.txt"):
-    stopwords = utils.load_file(path + "/res/" + filename).split("\n")
+    stopwords = utils.load_file(path + "/res/" + filename)
     return stopwords
 
 
@@ -289,7 +286,7 @@ def build_vocabulary(vocab_filename, lines, minimum_occurrence=1):
                       if vocabulary[key] >= minimum_occurrence}
         utils.save_file(vocabulary.keys(), vocab_filename)
         print("Vocabulary saved to file \"%s\"" % vocab_filename)
-    vocabulary = set(utils.load_file(vocab_filename).split())
+    vocabulary = set(utils.load_file(vocab_filename))
     print("Loaded vocabulary of size ", len(vocabulary))
     return vocabulary
 
@@ -376,13 +373,13 @@ def ulterior_clean(tweets, filename):
             filtered_tweets.append(' '.join(filtered_tweet))
         utils.save_file(filtered_tweets, filename)
     # Load the filtered tokens
-    filtered_tweets = utils.load_file(filename).split("\n")
+    filtered_tweets = utils.load_file(filename)
     return filtered_tweets
 
 
 def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
     if not os.path.exists(pos_filename):
-        tweets = utils.load_file(tweets_filename).split("\n")
+        tweets = utils.load_file(tweets_filename)
         tokens_lines = []
         pos_lines = []
         tokens_line = ""
@@ -400,8 +397,8 @@ def get_tags_for_each_tweet(tweets_filename, tokens_filename, pos_filename):
         utils.save_file(tokens_lines, tokens_filename)
         utils.save_file(pos_lines, pos_filename)
     # Load the tokens and the pos for the tweets in this set
-    tokens = utils.load_file(tokens_filename).split("\n")
-    pos = utils.load_file(pos_filename).split("\n")
+    tokens = utils.load_file(tokens_filename)
+    pos = utils.load_file(pos_filename)
     return tokens, pos
 
 
@@ -414,7 +411,7 @@ def cmu_probs_to_files(filename):
     return tokens, pos
 
 
-# Split based on camel_case
+# Split based on Camel Case
 def camel_case_split(term):
     term = re.sub(r'([0-9]+)', r' \1', term)
     term = re.sub(r'(1st|2nd|3rd|4th|5th|6th|7th|8th|9th|0th)', r'\1 ', term)
@@ -509,8 +506,9 @@ def split_hashtag_long_version(hashtag):
     return split_words
 
 
-def split_hashtags2(hashtag, word_list):
-    print('Hashtag is ', hashtag)
+def split_hashtags2(hashtag, word_list, verbose=False):
+    if verbose:
+        print("Hashtag is %s" % hashtag)
     # Get rid of the hashtag
     if hashtag.startswith('#'):
         term = hashtag[1:]
@@ -519,16 +517,19 @@ def split_hashtags2(hashtag, word_list):
 
     # If the hastag is already an existing word (a single word), return it
     if word_list is not None and term.lower() in word_list:
-        return [term.lower()]
-
+        return ['#' + term]
     # First, attempt splitting by CamelCase
     if term[1:] != term[1:].lower() and term[1:] != term[1:].upper():
         splits = camel_case_split(term)
     elif '#' in term:
         splits = term.split("#")
+    elif len(term) > 27:
+        if verbose:
+            print("Hashtag %s is too big so let as it is." % term)
+        splits = [term]
     else:
         # Second, build possible splits and choose the best split by assigning
-        # a "score" to each possible split, based on the frequency with which a word is occuring
+        # a "score" to each possible split, based on the frequency with which a word is occurring
         penalty = -69971
         max_coverage = penalty
         max_splits = 6
@@ -565,10 +566,10 @@ def split_hashtags2(hashtag, word_list):
                                               else True for word in line]
                         if all(line_is_valid_word):
                             found_all_words = True
-                            # print(line, score, line_is_valid_word)
                 n_splits = n_splits + 1
     splits = ['#' + str(s) for s in splits]
-    print("Split to: ", splits)
+    if verbose:
+        print("Split to: ", splits)
     return splits
 
 
@@ -585,7 +586,7 @@ def clean_tweet(tweet, word_list, split_hashtag_method, replace_user_mentions=Tr
         if word.lower().startswith('#sarca'):
             continue
         # Never include URLs
-        if word.startswith('http'):
+        if 'http' in word:
             continue
         # Replace specific user mentions with a general user name
         if replace_user_mentions and word.startswith('@'):
@@ -636,7 +637,7 @@ def initial_clean(tweets, clean_filename, word_file, word_file_is_dict=False, sp
         utils.save_file(filtered_tweets, clean_filename)
         return filtered_tweets
     else:
-        filtered_tweets = utils.load_file(clean_filename).split("\n")
+        filtered_tweets = utils.load_file(clean_filename)
         return filtered_tweets
 
 
@@ -670,7 +671,7 @@ def strict_clean(tweets, filename):
         utils.save_file(strict_tweets, filename)
         return strict_tweets
     else:
-        strict_tweets = utils.load_file(filename).split("\n")
+        strict_tweets = utils.load_file(filename)
         return strict_tweets
 
 
@@ -682,8 +683,8 @@ def get_strict_data(train_filename, test_filename):
     test_tweets = utils.load_file(path + "/res/data/" + test_filename)
 
     # Initial clean of data
-    strict_tweets_train = strict_clean(train_tweets.split("\n"), path + "/res/data/strict_" + train_filename)
-    strict_tweets_test = strict_clean(test_tweets.split("\n"), path + "/res/data/strict_" + test_filename)
+    strict_tweets_train = strict_clean(train_tweets, path + "/res/data/strict_" + train_filename)
+    strict_tweets_test = strict_clean(test_tweets, path + "/res/data/strict_" + test_filename)
     return strict_tweets_train, strict_tweets_test
 
 
@@ -691,35 +692,35 @@ def get_strict_data(train_filename, test_filename):
 def get_clean_data(train_filename, test_filename, word_filename):
     # Load the (original) train and test sets
     print("Loading data...")
-    train_tweets = utils.load_file(path + "/res/data/" + train_filename).split("\n")
-    test_tweets = utils.load_file(path + "/res/data/" + test_filename).split("\n")
-    clean_train = initial_clean(train_tweets, path + "/res/data/" + train_filename, word_filename,
+    train_tweets = utils.load_file(path + "/res/datasets/sarcasmdetection/sd_" + train_filename)
+    test_tweets = utils.load_file(path + "/res/datasets/sarcasmdetection/sd_" + test_filename)
+    clean_train = initial_clean(train_tweets, path + "/res/datasets/sarcasmdetection/clean_" + train_filename, word_filename,
                                 word_file_is_dict=True, split_hashtag_method=split_hashtags2)
-    clean_test = initial_clean(test_tweets, path + "/res/data/" + test_filename, word_filename,
+    clean_test = initial_clean(test_tweets, path + "/res/datasets/sarcasmdetection/clean_" + test_filename, word_filename,
                                word_file_is_dict=True, split_hashtag_method=split_hashtags2)
     return clean_train, clean_test
 
 
-# An ulterior clean of data (designed to be applied on top of initial clean - e.g. clean_train.txt)
+# An ulterior clean of data (designed to be applied on top of initial clean - e.g. train.txt)
 def get_filtered_clean_data(train_filename, test_filename):
     # Loading the train and test sets
     print("Loading data...")
-    train_tokens = utils.load_file(path + "/res/data/" + train_filename).split("\n")
-    test_tokens = utils.load_file(path + "/res/data/" + test_filename).split("\n")
+    train_tokens = utils.load_file(path + "/res/data/" + train_filename)
+    test_tokens = utils.load_file(path + "/res/data/" + test_filename)
     filtered_train_tokens = ulterior_clean(train_tokens, path + "/res/data/filtered_" + train_filename)
     filtered_test_tokens = ulterior_clean(test_tokens, path + "/res/data/filtered_" + test_filename)
     return filtered_train_tokens, filtered_test_tokens
 
 
-# Grammatical clean of data (designed to be applied on top of initial clean - e.g. clean_train.txt)
+# Grammatical clean of data (designed to be applied on top of initial clean - e.g. train.txt)
 def get_grammatical_data(train_filename, test_filename, dict_filename,
                          translate_emojis=True, replace_slang=True, lowercase=True):
     # Load the train and test sets
     print("Loading data...")
-    train_tokens = utils.load_file(path + "/res/tokens/tokens_" + train_filename).split("\n")
-    train_pos = utils.load_file(path + "/res/pos/pos_" + train_filename).split("\n")
-    test_tokens = utils.load_file(path + "/res/tokens/tokens_" + test_filename).split("\n")
-    test_pos = utils.load_file(path + "/res/pos/pos_" + test_filename).split("\n")
+    train_tokens = utils.load_file(path + "/res/tokens/tokens_" + train_filename)
+    train_pos = utils.load_file(path + "/res/pos/pos_" + train_filename)
+    test_tokens = utils.load_file(path + "/res/tokens/tokens_" + test_filename)
+    test_pos = utils.load_file(path + "/res/pos/pos_" + test_filename)
 
     if translate_emojis and replace_slang and lowercase:
         save_path = path + "/res/data/finest_grammatical_"
@@ -735,7 +736,7 @@ def get_grammatical_data(train_filename, test_filename, dict_filename,
 
 
 # Get train and test tokens, as well as indices assigned according to a vocabulary
-# (designed to be applied on top of initial clean tokens - e.g. clean_train.txt)
+# (designed to be applied on top of initial clean tokens - e.g. train.txt)
 def get_clean_dl_data(train_filename, test_filename, word_list):
     vocab_filename = "dnn_vocabulary_" + train_filename
     # Load the train and test sets
@@ -745,15 +746,26 @@ def get_clean_dl_data(train_filename, test_filename, word_list):
     vocabulary = build_vocabulary_for_dnn_tasks(path + "/res/vocabulary/" + vocab_filename, train_tweets)
     clean_train_tweets, train_indices = vocabulary_filtering(vocabulary, train_tweets)
     clean_test_tweets, test_indices = vocabulary_filtering(vocabulary, test_tweets)
-
     return clean_train_tweets, train_indices, clean_test_tweets, test_indices, len(vocabulary)
 
 
+def get_dataset(dataset):
+    data_path = path + "/res/datasets/" + dataset + "/"
+    train_tweets = utils.load_file(data_path + "tokens_train.txt")
+    test_tweets = utils.load_file(data_path + "tokens_test.txt")
+    train_pos = utils.load_file(data_path + "pos_train.txt")
+    test_pos = utils.load_file(data_path + "pos_test.txt")
+    train_labels = [int(l) for l in utils.load_file(data_path + "labels_train.txt")]
+    test_labels = [int(l) for l in utils.load_file(data_path + "labels_test.txt")]
+    print("Size of the train set: ", len(train_labels))
+    print("Size of the test set: ", len(test_labels))
+    return train_tweets, train_pos, train_labels, test_tweets, test_pos, test_labels
+
+
 if __name__ == '__main__':
-    train_filename = "original_train.txt"
-    test_filename = "original_test.txt"
-    dict_filename = "word_list.txt"
-    word_filename = "word_list_freq.txt"
+
+    train_filename = "clean_original_train.txt"
+    test_filename = "clean_original_test.txt"
 
     # For a superficial clean
     clean_train, clean_test = get_clean_data(train_filename, test_filename, word_filename)
