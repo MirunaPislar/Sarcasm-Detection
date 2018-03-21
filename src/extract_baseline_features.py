@@ -3,7 +3,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 from nltk import ngrams, pos_tag
 from collections import Counter
 import numpy as np
-import data_processing as data_proc
+import vocab_helpers as helper
 
 
 def count_apparitions(tokens, list_to_count_from):
@@ -50,9 +50,9 @@ def get_features1(tweets, subj_dict):
                     if 'negative' in subj_dict[stemmed]['anypos']:
                         feature_list[3] += 1.0
         # Derive features from punctuation
-        feature_list[4] += count_apparitions(tokens, data_proc.punctuation)
+        feature_list[4] += count_apparitions(tokens, helper.punctuation)
         # Take the number of strong negations as a feature
-        feature_list[5] += count_apparitions(tokens, data_proc.strong_negations)
+        feature_list[5] += count_apparitions(tokens, helper.strong_negations)
         features.append(feature_list)
     print("Done.")
     return features
@@ -86,11 +86,11 @@ def get_features2(tweets, subj_dict):
         if feature_list[0] != 0.0 and feature_list[1] != 0.0:
             feature_list[2] = feature_list[0] / feature_list[1]
         # Derive features from punctuation
-        feature_list[2] += count_apparitions(tokens, data_proc.punctuation)
+        feature_list[2] += count_apparitions(tokens, helper.punctuation)
         # Take strong negations as a feature
-        feature_list[3] += count_apparitions(tokens, data_proc.strong_negations)
+        feature_list[3] += count_apparitions(tokens, helper.strong_negations)
         # Take strong affirmatives as a feature
-        feature_list[4] += count_apparitions(tokens, data_proc.strong_affirmatives)
+        feature_list[4] += count_apparitions(tokens, helper.strong_affirmatives)
         features.append(feature_list)
     print("Done.")
     return features
@@ -152,11 +152,11 @@ def get_features3(tweets, subj_dict):
         if (feature_list[0] + feature_list[2]) != 0.0 and (feature_list[1] + feature_list[3]) != 0.0:
             feature_list[4] = (feature_list[0] + feature_list[2]) / (feature_list[1] + feature_list[3])
         # Derive features from punctuation
-        feature_list[5] += count_apparitions(tokens, data_proc.punctuation)
+        feature_list[5] += count_apparitions(tokens, helper.punctuation)
         # Take strong negations as a feature
-        feature_list[6] += count_apparitions(tokens, data_proc.strong_negations)
+        feature_list[6] += count_apparitions(tokens, helper.strong_negations)
         # Take strong affirmatives as a feature
-        feature_list[7] += count_apparitions(tokens, data_proc.strong_affirmatives)
+        feature_list[7] += count_apparitions(tokens, helper.strong_affirmatives)
         features.append(feature_list)
     print("Done.")
     return features

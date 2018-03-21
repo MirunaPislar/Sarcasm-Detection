@@ -1,7 +1,7 @@
 import os, time, itertools
 from sklearn import preprocessing
 import extract_baseline_features
-import extract_ml_features as extract_features
+import extract_ml_features2 as extract_features
 import utils, classifiers
 import data_processing as data_proc
 
@@ -13,10 +13,14 @@ pos_grams = True
 sentiment = True
 topic = True
 similarity = True
-pos_ngram_list = [1, 2, 3]
+pos_ngram_list = [1]
 ngram_list = [1]
-embedding_dim = 300
+embedding_dim = 100
 word2vec_map = utils.load_vectors(filename='glove.6B.%dd.txt' % embedding_dim)
+
+# Set the values for the portion fo data
+n_train = 3000
+n_test = 500
 
 
 def baseline(tweets_train, train_labels, tweets_test, test_labels):
@@ -24,22 +28,22 @@ def baseline(tweets_train, train_labels, tweets_test, test_labels):
     subj_dict = data_proc.get_subj_lexicon()
 
     types_of_features = ['1', '2', '3', 'ngrams']
-    for type in types_of_features:
+    for t in types_of_features:
         start = time.time()
-        utils.print_model_title("Classification using feature type " + type)
-        if type is '1':
+        utils.print_model_title("Classification using feature type " + t)
+        if t is '1':
             x_train_features = extract_baseline_features.get_features1(tweets_train, subj_dict)
             x_test_features = extract_baseline_features.get_features1(tweets_test, subj_dict)
 
-        if type is '2':
+        if t is '2':
             x_train_features = extract_baseline_features.get_features2(tweets_train, subj_dict)
             x_test_features = extract_baseline_features.get_features2(tweets_test, subj_dict)
 
-        if type is '3':
+        if t is '3':
             x_train_features = extract_baseline_features.get_features3(tweets_train, subj_dict)
             x_test_features = extract_baseline_features.get_features3(tweets_test, subj_dict)
 
-        if type is 'ngrams':
+        if t is 'ngrams':
             ngram_map, x_train_features = extract_baseline_features.get_ngram_features(tweets_train, n=1)
             x_test_features = extract_baseline_features.get_ngram_features_from_map(tweets_test, ngram_map, n=1)
 
@@ -55,27 +59,28 @@ def baseline(tweets_train, train_labels, tweets_test, test_labels):
         classifiers.logistic_regression(x_train_features, train_labels, x_test_features, test_labels, class_ratio)
         end = time.time()
         print("Completion time of the baseline model with features type %s: %.3f s = %.3f min"
-              % (type, (end - start), (end - start) / 60.0))
+              % (t, (end - start), (end - start) / 60.0))
 
 
-def ml_model(train_tokens, train_filtered_tokens, train_pos, train_filtered_pos, y_train,
-             test_tokens, test_filtered_tokens, test_pos, test_filtered_pos, y_test, verbose=False):
+def ml_model(train_tokens, train_pos, y_train, test_tokens, test_pos, y_test):
 
     print("Processing TRAIN SET features...\n")
+    start = time.time()
     train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim = extract_features.get_feature_set\
-        (train_tokens, train_pos, train_filtered_tokens, train_filtered_pos, set="train",
-         pragmatic=pragmatic, lexical=lexical, ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
+        (train_tokens, train_pos, pragmatic=pragmatic, lexical=lexical,
+         ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
          sentiment=sentiment, topic=topic, similarity=similarity, word2vec_map=word2vec_map)
+    end = time.time()
+    print("Completion time of extracting train models: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
 
     print("Processing TEST SET features...\n")
+    start = time.time()
     test_pragmatic, test_lexical, test_pos, test_sent, test_topic, test_sim = extract_features.get_feature_set \
-        (test_tokens, test_pos, test_filtered_tokens, test_filtered_pos, set="test",
-         pragmatic=pragmatic, lexical=lexical, ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
+        (test_tokens, test_pos, pragmatic=pragmatic, lexical=lexical,
+         ngram_list=ngram_list, pos_grams=pos_grams, pos_ngram_list=pos_ngram_list,
          sentiment=sentiment, topic=topic, similarity=similarity, word2vec_map=word2vec_map)
-
-    if verbose:
-        utils.print_feature_values("TRAIN", train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim)
-        utils.print_feature_values("TEST", test_pragmatic, test_lexical, test_pos, test_sent, test_topic, test_sim)
+    end = time.time()
+    print("Completion time of extracting train models: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
 
     # Get all features together
     all_train_features = [train_pragmatic, train_lexical, train_pos, train_sent, train_topic, train_sim]
@@ -109,17 +114,14 @@ def ml_model(train_tokens, train_filtered_tokens, train_pos, train_filtered_pos,
         x_train_scaled = preprocessing.scale(x_train, axis=0)
         x_test_scaled = preprocessing.scale(x_test, axis=0)
 
-        print("Shape of the x train set ", len(x_train_scaled), len(x_train_scaled[0]))
-        print("Shape of the x test set ", len(x_test_scaled), len(x_test_scaled[0]))
-
-        utils.save_file(x_train_scaled, "train_features_scaled.txt")
-        utils.save_file(x_test_scaled, "test_features_scaled.txt")
+        print("Shape of the x train set (%d, %d)" % (len(x_train_scaled), len(x_train_scaled[0])))
+        print("Shape of the x test set (%d, %d)" % (len(x_test_scaled), len(x_test_scaled[0])))
 
         # Run the model on the selection of features made
         start = time.time()
         utils.run_supervised_learning_models(x_train_scaled, y_train, x_test_scaled, y_test)
         end = time.time()
-        print("Completion time of the ML model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
+        print("Completion time of the Linear SVM model: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
 
 
 if __name__ == "__main__":
@@ -127,30 +129,12 @@ if __name__ == "__main__":
     to_write_filename = path + '/stats/ml_analysis.txt'
     utils.initialize_writer(to_write_filename)
 
-    train_filename = "train.txt"
-    test_filename = "test.txt"
-
-    # Load the tokens for the train and test sets (including more filtered data)
-    train_tokens = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
-    test_tokens = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
-    train_filtered_tokens = utils.load_file(path + "/res/tokens/tokens_filtered_clean_original_" + train_filename).split("\n")
-    test_filtered_tokens = utils.load_file(path + "/res/tokens/tokens_filtered_clean_original_" + test_filename).split("\n")
-
-    # Load the pos tags for the train and test sets - extracted from the CMU Twitter Part-of-Speech Tagger
-    # according to the paper "Part-of-Speech Tagging for Twitter: Annotation, Features, and Experiments" by Gimpel et al
-    train_pos = utils.load_file(path + "/res/pos/pos_clean_original_" + train_filename).split("\n")
-    test_pos = utils.load_file(path + "/res/pos/pos_clean_original_" + test_filename).split("\n")
-    train_filtered_pos = utils.load_file(path + "/res/pos/pos_filtered_clean_original_" + train_filename).split("\n")
-    test_filtered_pos = utils.load_file(path + "/res/pos/pos_filtered_clean_original_" + test_filename).split("\n")
-
-    # Load the labels
-    train_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
-    test_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
+    dataset = "ghosh"      # can be "ghosh", "riloff", "sarcasmdetection" and "ptacek"
+    train_tokens, train_pos, train_labels, test_tokens, test_pos, test_labels = data_proc.get_dataset(dataset)
 
     run_baseline = False
 
     if run_baseline:
         baseline(train_tokens, train_labels, test_tokens, test_labels)
     else:
-        ml_model(train_tokens, train_filtered_tokens, train_pos, train_filtered_pos, train_labels,
-                 test_tokens, test_filtered_tokens, test_pos, test_filtered_pos, test_labels, verbose=False)
+        ml_model(train_tokens, train_pos, train_labels, test_tokens, test_pos, test_labels)
