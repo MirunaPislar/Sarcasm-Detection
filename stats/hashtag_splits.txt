@@ -1,8 +1,6 @@
 Loading data...
-Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/train.txt...
-The shape of this data set is:  (51189, 3)
-Reading data from file /home/miruna/PycharmProjects/sarcasm_detection_v1/res/test.txt...
-The shape of this data set is:  (3742, 3)
+The shape of the train data set is:  (51189, 3)
+The shape of the test data set is:  (3742, 3)
 #missnevadausa
 Split hash: ['#miss', '#nevada', '#us', '#a']
 #lazyproblem
