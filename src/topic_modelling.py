@@ -1,12 +1,10 @@
+import os, time, random, utils
 import data_processing as data_proc
 from nltk.stem.wordnet import WordNetLemmatizer
 import matplotlib.pyplot as plt
 from gensim.models import LdaModel
 from gensim.corpora import Dictionary
 import numpy as np
-import os
-import time
-import random
 
 
 def color_words(model, doc):
@@ -16,7 +14,7 @@ def color_words(model, doc):
                     5: 'pink', 6: 'brown', 7: 'grey', 8: 'navy', 9: 'salmon'}
     fig = plt.figure()
     ax = fig.add_axes([0, 0, 1, 1])
-    word_pos = 1 / len(doc) # this is just to make sure that the words are well spaced out
+    word_pos = 1 / len(doc)     # this is just to make sure that the words are well spaced out
     for word, topics in word_topics:
         ax.text(word_pos, 0.8, model.id2word[word],
                 horizontalalignment='center',
@@ -103,22 +101,10 @@ def plot_top_10_words_per_topic(path, ldatopic_words, num_topics=6, num_top_word
     plt.show()
 
 
-def get_documents(path, filename, use_nouns=True, use_verbs=False):
-    lemmatizer = WordNetLemmatizer()
-    filename = path + "/res/tweets_" + filename
-    data = data_proc.load_file(filename).split("\n")
+def get_documents(tweets, pos_tags, use_nouns=True, use_verbs=False):
     documents = []
-    clean_data = []
-    for line in data:
-        line = line.split("\t")
-        if len(line) < 2:
-            documents.append(clean_data)
-            clean_data = []
-            continue
-        if use_verbs and line[1] is 'V':
-            clean_data.append(lemmatizer.lemmatize(line[0].lower(), 'v'))
-        if use_nouns and line[1] is 'N':
-            clean_data.append(lemmatizer.lemmatize(line[0].lower()))
+    for tweet, pos in zip(tweets, pos_tags):
+        documents.append(data_proc.extract_lemmatized_tweet(tweet.split(), pos.split(), use_nouns=use_nouns, use_verbs=use_verbs))
     return documents
 
 
@@ -169,16 +155,10 @@ def gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verb
             color_words(ldamodel, doc)
 
 
-def main():
-    path = os.getcwd()[:os.getcwd().rfind('/')]
-    print("Begin processing...")
-    filename = "train.txt"
-    start = time.time()
-    documents = get_documents(path, filename, use_nouns=True, use_verbs=True)
-    end = time.time()
-    print("\nCompletion time for loading docs: %.3f s = %.3f min" % ((end - start), (end - start) / 60.0))
-    gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verbose=False, plotTopicsResults=True)
-
-
 if __name__ == "__main__":
-    main()
+    path = os.getcwd()[:os.getcwd().rfind('/')]
+    filename = "train.txt"
+    train_tokens = utils.load_file(path + "/res/tokens/tokens_filtered_clean_original_" + filename)
+    train_pos = utils.load_file(path + "/res/pos/pos_filtered_clean_original_" + filename)
+    documents = get_documents(train_tokens, train_pos, use_nouns=True, use_verbs=True)
+    gensim_lda_topic_modelling(path, documents, num_of_topics=6, passes=50, verbose=False, plotTopicsResults=True)
