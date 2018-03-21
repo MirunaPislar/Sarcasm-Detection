@@ -107,8 +107,7 @@ contractions = {
     "y'all're": "you all are",
     "y'all've": "you all have",
     "c'mon": "come on",
-    "ma": "am going to",
-    "se": "is"  # NOT precisely correct -- remove if make corrections
+    "ma": "am going to"
 }
 
 slang = {
