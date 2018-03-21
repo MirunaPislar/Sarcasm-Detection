@@ -1,7 +1,7 @@
-import os, sys, time, utils
+import os, time, utils
 import numpy as np
 import data_processing as data_proc
-from keras.models import Model
+from keras.models import Model, Sequential
 from keras.optimizers import Adam
 from keras.layers import Dense, Dropout, Flatten, LSTM, GRU, Bidirectional, Input, Multiply
 from keras.engine.topology import Layer
@@ -18,6 +18,39 @@ from numpy.random import seed
 seed(1337603)
 
 
+# Fit and evaluate a simple feed-forward neural network model to analyse the improvements (or not) on BoW/embeddings
+def nn_bow_model(x_train, y_train, x_test, y_test, results, mode,
+                 epochs=15, batch_size=32, hidden_units=50, save=False, plot_graph=False):
+    # Build the model
+    print("\nBuilding Bow NN model...")
+    model = Sequential()
+    model.add(Dense(hidden_units, input_shape=(x_train.shape[1],), activation='sigmoid'))
+    model.add(Dense(1, activation='sigmoid'))
+    model.summary()
+
+    # Train using binary cross entropy loss, Adam implementation of Gradient Descent
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy', utils.f1_score])
+    history = model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, verbose=1)
+
+    if plot_graph:
+        utils.plot_training_statistics(history, "/plots/bow_models/bow_%s_mode" % mode)
+
+    # Evaluate the model
+    loss, acc, f1 = model.evaluate(x_test, y_test, batch_size=batch_size)
+    results[mode] = [loss, acc, f1]
+    classes = model.predict_classes(x_test, batch_size=batch_size)
+    y_pred = [item for c in classes for item in c]
+    utils.print_statistics(y_test, y_pred)
+    print("%d examples predicted correctly." % np.sum(np.array(y_test) == np.array(y_pred)))
+    print("%d examples predicted 1." % np.sum(1 == np.array(y_pred)))
+    print("%d examples predicted 0." % np.sum(0 == np.array(y_pred)))
+
+    if save:
+        json_name = path + "/models/bow_models/json_bow_" + mode + "_mode.json"
+        h5_weights_name = path + "/models/bow_models/h5_bow_" + mode + "_mode.json"
+        utils.save_model(model, json_name=json_name, h5_weights_name=h5_weights_name)
+
+
 # A standard DNN used as a baseline
 def standard_dnn_model(**kwargs):
     X = Dense(kwargs['hidden_units'], kernel_initializer='he_normal', activation='relu')(kwargs['embeddings'])
@@ -32,7 +65,7 @@ def cnn_model(**kwargs):
     X = Conv1D(filters=kwargs['hidden_units'], kernel_size=3, kernel_initializer='he_normal', padding='valid',
                activation='relu')(X)
     X = GlobalMaxPooling1D()(X)
-    # X = MaxPooling1D(pool_size=3)(X)
+    # X = MaxPooling1D(pool_size=3)(X)      # an alternative to global max pooling
     # X = Flatten()(X)
     return X
 
@@ -65,7 +98,7 @@ def bidirectional_lstm_model(**kwargs):
     return X
 
 
-# This is the precise architecture as Ghosh has proposed in his paper "Fracking sarcasm"
+# This is the precise architecture as Ghosh has proposed in his paper "Fracking Sarcasm using Neural Network" (2016)
 def cnn_lstm_model(**kwargs):
     X = Conv1D(kwargs['hidden_units'], 3, kernel_initializer='he_normal', padding='valid', activation='relu')(kwargs['embeddings'])
     X = Conv1D(kwargs['hidden_units'], 3, kernel_initializer='he_normal', padding='valid', activation='relu')(X)
@@ -168,7 +201,7 @@ def predict(model, x_test, y_test):
     y_pred = []
     prediction_probability = model.predict(x_test)
     print("Predicted probability length: ", len(prediction_probability))
-    for i, (label) in enumerate(prediction_probability):
+    for i, (_) in enumerate(prediction_probability):
         predicted = np.argmax(prediction_probability[i])
         y.append(int(y_test[i]))
         y_pred.append(predicted)
@@ -223,12 +256,12 @@ def run_dl_analysis(train_tweets, test_tweets, y_train, y_test, path, shuffle=Tr
 
         # Compile the model
         my_optimizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.99, decay=0.01)
-        model.compile(loss='categorical_crossentropy', optimizer=my_optimizer, metrics=['accuracy', utils.f1_score])
+        model.compile(loss='categorical_crossentropy', optimizer=my_optimizer, metrics=['categorical_accuracy', utils.f1_score])
 
         # Print the model summary
         print(model.summary())
 
-        if plot:            # to save an image of the current architecture
+        if plot:            # save an image of the current architecture
             plot_model(model, to_file=path + '/models/dnn_models/' + dnn_model.lower() + '_model_summary.png',
                        show_shapes=True, show_layer_names=True)
 
@@ -246,7 +279,8 @@ def run_dl_analysis(train_tweets, test_tweets, y_train, y_test, path, shuffle=Tr
                             callbacks=[save_best, reduceLR, early_stopping], validation_split=0.1, verbose=1)
 
         if plot:
-            utils.plot_training_statistics(history, "/plots/dnn_models/" + dnn_model)
+            utils.plot_training_statistics(history, "/plots/dnn_models/" + dnn_model, also_plot_validation=False,
+                                           acc_mode='categorical_accuracy', loss_mode='loss')
 
         # Load the best model
         model = utils.load_model(json_name=path + '/models/dnn_models/model_json/' + dnn_model.lower() + '_model.json',
@@ -266,24 +300,22 @@ if __name__ == "__main__":
     to_write_filename = path + '/stats/dnn_models_analysis.txt'
     utils.initialize_writer(to_write_filename)
 
+    # Load the train and test sets for the selected dataset
+    dataset = "ghosh"
+    train_data, _, train_labels, test_data, _, test_labels = data_proc.get_dataset(dataset)
+
+    # Alternatively, if other experiments with the data are to be made (on Ghosh's dataset)
+    # load different tokens (grammatical, strict, filtered, etc) and train on those
+    """
     train_filename = "train_sample.txt"
     test_filename = "test_sample.txt"
+    
+    train_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename)
+    test_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename)
 
-    # Load the train and test sets
-    print("Loading data...")
-    train_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + train_filename).split("\n")
-    test_data = utils.load_file(path + "/res/tokens/tokens_clean_original_" + test_filename).split("\n")
-
-    # Load the deepmoji predictions for each tweet
-    train_deepmoji = utils.get_deepmojis("data_frame_" + train_filename[:-4] + ".csv", threshold=0.05)
-    train_deepmoji = [' '.join(e) for e in train_deepmoji]
-
-    test_deepmoji = utils.get_deepmojis("data_frame_" + test_filename[:-4] + ".csv", threshold=0.05)
-    test_deepmoji = [' '.join(e) for e in test_deepmoji]
-
-    # Load the labels
-    train_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + train_filename).split("\n")]
-    test_labels = [int(l) for l in utils.load_file(path + "/res/data/labels_" + test_filename).split("\n")]
+    train_labels = [int(l) for l in utils.load_file(path + "/res/datasets/ghosh/labels_" + train_filename)]
+    test_labels = [int(l) for l in utils.load_file(path + "/res/datasets/ghosh/labels_" + test_filename)]
+    """
 
     # Transform the output into categorical data
     y_train = to_categorical(np.asarray(train_labels))
@@ -291,25 +323,26 @@ if __name__ == "__main__":
 
     # Make and print the settings for the DL model
     max_len = utils.get_max_len_info(train_data)
-    emb_type = 'emoji'
+    emb_types = ['keras', 'glove', 'random']
     trainable = True
     plot = True
-    shuffle = True
-    epochs = 5
-    batch_size = 16
-    embedding_dim = 50
+    shuffle = False
+    epochs = 50
+    batch_size = 256
+    embedding_dim = 300
     hidden_units = 256
     dropout = 0.3
-    utils.print_settings(max_len, embedding_dim, hidden_units, epochs, batch_size, dropout, emb_type, trainable)
 
-    if 'emoji' in emb_type:
-        train_data = train_deepmoji
-        test_data = test_deepmoji
+    for emb_type in emb_types:
+        utils.print_settings(max_len, embedding_dim, hidden_units, epochs, batch_size, dropout, emb_type, trainable)
+        if shuffle:
+            print("DATA HAS BEEN SHUFFLED.")
+        else:
+            print("Data is in its normal order (NO shuffling).")
 
-    # List of the models to be analysed
-    models = ['Standard', 'CNN', 'LSTM', 'GRU', 'Bidirectional LSTM', 'CNN + LSTM', 'Stateless Attention', 'Attention']
-    models = ['Standard']
+        # List of the models to be analysed
+        models = ['Standard', 'LSTM', 'Attention']
 
-    # Run model
-    run_dl_analysis(train_data, test_data, y_train, y_test, path, shuffle, max_len, emb_type,
-                    trainable, plot, models, epochs, batch_size, embedding_dim, hidden_units, dropout)
+        # Run model
+        run_dl_analysis(train_data, test_data, y_train, y_test, path, shuffle, max_len, emb_type,
+                        trainable, plot, models, epochs, batch_size, embedding_dim, hidden_units, dropout)

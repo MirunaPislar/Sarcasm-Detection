@@ -6,85 +6,37 @@ from tensorflow.contrib.rnn import GRUCell
 from tensorflow.python.ops.rnn import bidirectional_dynamic_rnn as bi_rnn
 from tqdm import tqdm
 from utils import batch_generator, get_max_len_info
-from data_prep_for_visualization import get_data
+from data_prep_for_visualization import prepare_data
 
 
-# Load the data
-X_train, y_train_categorical, X_test, y_test_categorical, vocabulary_size, tokenizer, max_tweet_length = get_data()
-y_train = []
-for y in y_train_categorical:
-    y_train.append(np.argmax(y))
-y_train = np.array(y_train)
+# Define some parameters
+path = os.getcwd()[:os.getcwd().rfind('/')]
+MODEL_PATH = path + '/models/tf_attention/'
+BATCH_SIZE = 50
+EPOCHS = 2
+EMBEDDING_DIM = 100
+HIDDEN_UNITS = 150
+ATTENTION_UNITS = 50
+KEEP_PROB = 0.8
+DELTA = 0.5
+SHUFFLE = False
 
-y_test = []
-for y in y_test_categorical:
-    y_test.append(np.argmax(y))
-y_test = np.array(y_test)
+# Get the data
+X_train, y_train, X_test, y_test, vocabulary_size, tokenizer, max_tweet_length \
+    = prepare_data(shuffle=SHUFFLE, labels_to_categorical=False)
 
 # Get the word to index and the index to word mappings
 word_index = tokenizer.word_index
 index_to_word = {index: word for word, index in word_index.items()}
 
-# Define some parameters
-MODEL_PATH = os.getcwd()[:os.getcwd().rfind('/')] + '/models/tf_attention/'
+# Set the sequence length
 SEQUENCE_LENGTH = max_tweet_length
-EMBEDDING_DIM = 100
-HIDDEN_SIZE = 150
-ATTENTION_SIZE = 50
-KEEP_PROB = 0.8
-BATCH_SIZE = 256
-EPOCHS = 1
-DELTA = 0.5
 
 
 # This is piece of code is Copyright (c) 2017 to Ilya Ivanov and grants permission under MIT Licence
 # https://github.com/ilivans/tf-rnn-attention/blob/master/attention.py
+# Implementation as proposed by Yang et al. in "Hierarchical Attention Networks for Document Classification" (2016)
 def attention(inputs, attention_size, time_major=False, return_alphas=False):
-    """
-    Attention mechanism layer which reduces RNN/Bi-RNN outputs with Attention vector.
-
-    The idea was proposed in the article by Z. Yang et al., "Hierarchical Attention Networks
-     for Document Classification", 2016: http://www.aclweb.org/anthology/N16-1174.
-    Variables notation is also inherited from the article
-
-    Args:
-        inputs: The Attention inputs.
-            Matches outputs of RNN/Bi-RNN layer (not final state):
-                In case of RNN, this must be RNN outputs `Tensor`:
-                    If time_major == False (default), this must be a tensor of shape:
-                        `[batch_size, max_time, cell.output_size]`.
-                    If time_major == True, this must be a tensor of shape:
-                        `[max_time, batch_size, cell.output_size]`.
-                In case of Bidirectional RNN, this must be a tuple (outputs_fw, outputs_bw) containing the forward and
-                the backward RNN outputs `Tensor`.
-                    If time_major == False (default),
-                        outputs_fw is a `Tensor` shaped:
-                        `[batch_size, max_time, cell_fw.output_size]`
-                        and outputs_bw is a `Tensor` shaped:
-                        `[batch_size, max_time, cell_bw.output_size]`.
-                    If time_major == True,
-                        outputs_fw is a `Tensor` shaped:
-                        `[max_time, batch_size, cell_fw.output_size]`
-                        and outputs_bw is a `Tensor` shaped:
-                        `[max_time, batch_size, cell_bw.output_size]`.
-        attention_size: Linear size of the Attention weights.
-        time_major: The shape format of the `inputs` Tensors.
-            If true, these `Tensors` must be shaped `[max_time, batch_size, depth]`.
-            If false, these `Tensors` must be shaped `[batch_size, max_time, depth]`.
-            Using `time_major = True` is a bit more efficient because it avoids
-            transposes at the beginning and end of the RNN calculation.  However,
-            most TensorFlow data is batch-major, so by default this function
-            accepts input and emits output in batch-major form.
-        return_alphas: Whether to return attention coefficients variable along with layer's output.
-            Used for visualization purpose.
-    Returns:
-        The Attention output `Tensor`.
-        In case of RNN, this will be a `Tensor` shaped:
-            `[batch_size, cell.output_size]`.
-        In case of Bidirectional RNN, this will be a `Tensor` shaped:
-            `[batch_size, cell_fw.output_size + cell_bw.output_size]`.
-    """
-
     if isinstance(inputs, tuple):
         # In case of Bi-RNN, concatenate the forward and the backward RNN outputs.
         inputs = tf.concat(inputs, 2)
@@ -133,13 +85,13 @@ def build_attention_model():
         batch_embedded = tf.nn.embedding_lookup(embeddings_var, batch_ph)
 
     # (Bi-)RNN layer(-s)
-    rnn_outputs, _ = bi_rnn(GRUCell(HIDDEN_SIZE), GRUCell(HIDDEN_SIZE),
+    rnn_outputs, _ = bi_rnn(GRUCell(HIDDEN_UNITS), GRUCell(HIDDEN_UNITS),
                             inputs=batch_embedded, sequence_length=seq_len_ph, dtype=tf.float32)
     tf.summary.histogram('RNN_outputs', rnn_outputs)
 
     # Attention layer
     with tf.name_scope('Attention_layer'):
-        attention_output, alphas = attention(rnn_outputs, ATTENTION_SIZE, return_alphas=True)
+        attention_output, alphas = attention(rnn_outputs, ATTENTION_UNITS, return_alphas=True)
         tf.summary.histogram('alphas', alphas)
 
     # Dropout
@@ -148,7 +100,7 @@ def build_attention_model():
     # Fully connected layer
     with tf.name_scope('Fully_connected_layer'):
         W = tf.Variable(
-            tf.truncated_normal([HIDDEN_SIZE * 2, 1], stddev=0.1))  # Hidden size is multiplied by 2 for Bi-RNN
+            tf.truncated_normal([HIDDEN_UNITS * 2, 1], stddev=0.1))  # Hidden size is multiplied by 2 for Bi-RNN
         b = tf.Variable(tf.constant(0., shape=[1]))
         y_hat = tf.nn.xw_plus_b(drop, W, b)
         y_hat = tf.squeeze(y_hat)
@@ -175,7 +127,7 @@ def build_attention_model():
            train_batch_generator, test_batch_generator, session_conf, saver
 
 
-def attention_learning():
+if __name__ == '__main__':
     batch_ph, target_ph, seq_len_ph, keep_prob_ph, alphas, loss, accuracy, optimizer, merged, \
     train_batch_generator, test_batch_generator, session_conf, saver = build_attention_model()
 
@@ -210,7 +162,7 @@ def attention_learning():
 
             # Testing
             num_batches = X_test.shape[0] // BATCH_SIZE
-            for b in tqdm(range(num_batches)):
+            for batch in tqdm(range(num_batches)):
                 x_batch, y_batch = next(test_batch_generator)
                 seq_lists = []
                 for x in x_batch:
@@ -232,7 +184,3 @@ def attention_learning():
             print("loss: {:.3f}, val_loss: {:.3f}, acc: {:.3f}, val_acc: {:.3f}".format(
                 loss_train, loss_test, accuracy_train, accuracy_test))
         saver.save(sess, MODEL_PATH)
-
-
-if __name__ == '__main__':
-    attention_learning()

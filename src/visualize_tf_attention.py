@@ -31,10 +31,8 @@ def get_alpha_values(low, high):
 
 
 def visualize_tf_attention_per_word(x_test_start, x_test_end):
-    saver = tf.train.Saver()
-
     # Save visualization as HTML
-    with open("attention_vis.html", "w") as html_file:
+    with open(path + "/plots/html_visualizations/attention_vis.html", "w") as html_file:
         html_file.write('<!DOCTYPE html>\n')
         html_file.write('<html>\n'
                         '<font size="5">\n'
@@ -45,17 +43,18 @@ def visualize_tf_attention_per_word(x_test_start, x_test_end):
                         '<br><br>'
                         '</head>\n')
         html_file.write('<body>\n')
-        print("Preparing the vizualization of attention coefficients...")
+        print("Preparing the vizualization for the attention coefficients...")
         for i in tqdm(range(x_test_start, x_test_end)):
             words, alphas_values = get_alpha_values(i, i + 1)
             for word, alpha in zip(words, alphas_values / alphas_values.max()):
                 html_file.write('<font style="background: rgba(255, 0, 0, %f)">%s</font>\n' % (alpha, word))
             html_file.write('<br><br>')
         html_file.write('</body></font></html>')
-    print('\nAttention coefficients visualization is now available in attention_vis.html')
+    print('\nA visualization for the attention coefficients is now available in attention_vis.html')
 
 
 if __name__ == '__main__':
+    # Define the interval of test examples which you want to visualize (can be the whole test set or just a subset)
     x_test_start = 300
     x_test_end = 400
     visualize_tf_attention_per_word(x_test_start, x_test_end)

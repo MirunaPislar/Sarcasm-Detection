@@ -5,14 +5,14 @@ import os
 path = os.getcwd()[:os.getcwd().rfind('/')]
 
 
-def visualize_dense_layers(activations, doc_index):
+def visualize_dense_units(activations, doc_index):
     with open(path + "/plots/html_visualizations/dense_layer_vis" + str(doc_index) + ".html", "w") as html_file:
         html_file.write('<!DOCTYPE html>\n')
         html_file.write('<html>\n'
-                        '<font size="4">\n'
+                        '<font size="3">\n'
                         '<head>\n'
                         '<meta charset="UTF-8">\n'
-                        '<font size="5"><b>'
+                        '<font size="4"><b>'
                         'Sarcasm Detection - visualization of the dense layer weights</b></font size>'
                         '<br><br>'
                         '</head>\n')
@@ -33,17 +33,17 @@ def visualize_dense_layers(activations, doc_index):
             ratio = activations[unit] / this_max
             html_file.write('<font style="background: rgba(255, 0, 0, %f)">%s</font>' % (ratio, "_"))
         html_file.write('</pre></body></font></html>')
-        print('\nDense weights are now available in dense_layer_vis.html')
+        print('\nA visualization for the dense weights are now available in dense_layer_vis.html')
 
 
-def visualize_lstm_layers(activations, tw_input, index_to_word, doc_index):
+def visualize_lstm_units(activations, tw_input, index_to_word, doc_index):
     with open(path + "/plots/html_visualizations/lstm_layer_vis_" + str(doc_index) + ".html", "w") as html_file:
         html_file.write('<!DOCTYPE html>\n')
         html_file.write('<html>\n'
-                        '<font size="4">\n'
+                        '<font size="3">\n'
                         '<head>\n'
                         '<meta charset="UTF-8">\n'
-                        '<font size="5"><b><br>'
+                        '<font size="4"><b><br>'
                         'Sarcasm Detection - visualization of the LSTM hidden states</b></font size>'
                         '<br><br>'
                         '</head>\n')
@@ -82,10 +82,10 @@ def visualize_lstm_layers(activations, tw_input, index_to_word, doc_index):
                 html_file.write(" ")
             html_file.write('<br>')
         html_file.write('</pre></body></font></html>')
-        print('\nAttention coefficients visualization is now available in lstm_layer_vis.html')
+        print('\nA visualization for the memory weights in the LSTM layer is now available in lstm_layer_vis.html')
 
 
-def visualize_activations(activation_maps, activation_names, tw_input, index_to_word, verbose=True):
+def visualize_activations(activation_maps, activation_names, tw_input, index_to_word, plot=True, verbose=False):
     batch_size = activation_maps[0].shape[0]
     assert batch_size == 1, 'You can visualize just one tweet at a time!'
     html_document_index = 0
@@ -93,12 +93,11 @@ def visualize_activations(activation_maps, activation_names, tw_input, index_to_
         if verbose:
             print("Activation name: ", activation_name)
             print("Activation shape: ", activation_map.shape)
-            print("Activation map:")
-            print([a for a in activation_map])
+            print("Activation map:", activation_map)
         dimension = len(activation_map.shape)
         if dimension == 3:
             if 'lstm' in activation_name or 'recurrent' in activation_name:
-                visualize_lstm_layers(activation_map[0], list(tw_input[0]), index_to_word, html_document_index)
+                visualize_lstm_units(activation_map[0], list(tw_input[0]), index_to_word, html_document_index)
                 html_document_index += 1
             # activation_map = np.squeeze(activation_map, 0)
             activation_map = np.expand_dims(activation_map, -1)
@@ -108,22 +107,24 @@ def visualize_activations(activation_maps, activation_names, tw_input, index_to_
         elif dimension == 2:
             activations = activation_map[0]
             if 'dense' in activation_name and len(activations) > 2:
-                visualize_dense_layers(activations, html_document_index)
+                visualize_dense_units(activations, html_document_index)
                 html_document_index += 1
             activations = np.expand_dims(activations, axis=0)
-        # Plot activations
-        plt.imshow(activations, interpolation='None', cmap='terrain', aspect='equal')
-        plt.title("Visualization of %s activations" % activation_name)
-        plt.show()
+        # Plot activations for the layers found
+        if plot:
+            plt.imshow(activations, interpolation='None', cmap='terrain', aspect='equal')
+            plt.title("Visualization for %s activations" % activation_name)
+            plt.show()
 
 
-def get_activations(model, input, layer_name=None):
+def get_activations(model, test_example, layer_name=None):
     # Get the name of the layers
     names = [layer.name for layer in model.layers]
 
     # Get a list of model inputs
     inp = model.input
     multiple_inputs = True
+
     # Wrap single inputs in a list
     if not isinstance(inp, list):
         inp = [inp]
@@ -137,10 +138,10 @@ def get_activations(model, input, layer_name=None):
 
     if multiple_inputs:
         list_inputs = []
-        list_inputs.extend(input)
+        list_inputs.extend(test_example)
         list_inputs.append(0.)
     else:
-        list_inputs = [input, 0.]
+        list_inputs = [test_example, 0.]
 
     layer_outputs = [func(list_inputs)[0] for func in funcs]
 
