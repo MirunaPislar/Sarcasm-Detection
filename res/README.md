@@ -18,7 +18,8 @@ Each dataset directory has a minimum of 8 files (all having the same names) comp
 
 * **demo:** just a subset of Ghosh's dataset that I used for the demo.
 
-<table style="width:200%"align="center">
+
+<table style="width:200%" align="center">
   <tr>
     <th rowspan="2">Corpus</th>
     <th colspan="2">Train Set</th> 
@@ -59,6 +60,7 @@ Each dataset directory has a minimum of 8 files (all having the same names) comp
     <td>1285</td>
   </tr>
 </table>
+
 
 
 **Important:** these datasets are uploaded for convenience purposes only. I do not claim any rights on them so you should use them at your own responsibility. Make sure that you respect their licence and cite the original papers and the authors who so kindly made them available to the research community.
@@ -105,7 +107,9 @@ Two directories obtained by collecting separately the tokens and the part of spe
 	* all user mentions are replaced with *@user*
 	* hashtags are split and a # sign is appended to every word in the split
 
-**Note:** any #sarcasm tags in the dataset appeared from the hashtag splitting process should not be removed
+**Note** that any #sarcasm tags obtained after the hashtag splitting process should not be removed.
+
+![Pipeline to gather the clean tokens](../images/pipeline_clean_tokens.png)
 
 * **filtered_clean_original_train.txt** - on the *clean_original_train.txt* perform:
 	* lower-case and lemmatize every word
@@ -119,6 +123,8 @@ Two directories obtained by collecting separately the tokens and the part of spe
 	* all repeating characters are removed and checked against a dictionary
 	* emojis are left as they are
 	* emoticons are translated to emojis
+	
+![Pipeline to gather the grammatical tokens](../images/pipeline_gramm_tokens.png)
 
 * **finest_grammatical.txt** - on the *clean_original_train.txt* perform:
 	* the sign # before each hashtag is removed (not the hashtag itself)
@@ -133,10 +139,6 @@ Two directories obtained by collecting separately the tokens and the part of spe
 * **strict_train.txt** - the original dataset is cleared completely of hashtags, emojis, URLs and user mentions. 
 
 **Note** that some of the lines might be empty after this clearing process.
-
-![Pipeline to gather the clean tokens](../images/pipeline_clean_tokens.png)
-
-![Pipeline to gather the clean tokens](../images/pipeline_grammatical_tokens.png)
 
 ### Topic Data
 
