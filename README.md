@@ -7,8 +7,8 @@ I investigated various methods to detect sarcasm in tweets, using both tradition
 This research project was completed in partial fulfilment of the requirements for the degree of Bachelor of Science in Computer Science at the University of Manchester and under the careful supervision of Mr John McNaught, my tutor and mentor.
 
 ## Overview
-* [src/](src) contains all the source code used to process, analyse, train and evaluate the datasets (as described in the resources directory) in order to investigate sarcasm detection on Twitter data
-* [res/](res) contains the raw and processed datasets as well as some useful vocabularies, lists or selections of words/emojis that proved very useful in processing the data
+* [src/](src) contains all the source code used to process, analyse, train and evaluate the datasets (as described in [res/](res)) in order to investigate sarcasm detection on Twitter data
+* [res/](res) contains the raw and processed datasets as well as some useful vocabularies, lists or selections of words/emojis that proved very useful in preprocessing the data
 * [models/](models) contains all the pretrained models contributing to the achievement of the claimed results as well as all the trained models, saved after training under the described parameters and DL architectures
 * [plots/](plots) contains a collection of interesting plots that should be useful in analysing and sustaining the results obtained
 * [stats/](stats) contains some comparisons between preprocessing phases as well as some raw statistical results collected while training/evaluating
@@ -19,9 +19,9 @@ The code included in this repository has been tested to work with Python 3.5 on 
 
 #### List of requirements
 * [Python](https://www.python.org/downloads/) 3.5
-* [Keras](https://github.com/fchollet/keras) 2.0.8
+* [Keras](https://github.com/fchollet/keras) 2.0
 * [Tensorflow](https://www.tensorflow.org/install/) 1.3
-* [gensim](https://github.com/RaRe-Technologies/gensim) 3.0
+* [gensim](https://github.com/RaRe-Technologies/gensim) 3.0 
 * [numpy](https://github.com/numpy/numpy) 1.13
 * [scikit-learn](https://github.com/scikit-learn/scikit-learn)
 * [h5py](https://github.com/h5py/h5py)
@@ -33,43 +33,53 @@ The code included in this repository has been tested to work with Python 3.5 on 
 
 ## Installation and running
 
-After installing the dependencies listed above you should download the full resources and the pre-trained models. After that, depending on your task, you can run various models or tests as described below.
-
-1. Download all the resources from [here](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n) and place them in the *res/* directory
-2. Download the pre-trained models from [here](https://drive.google.com/open?id=1ss9-4LEzuKC-p1s0lLa0XVu2_ERM-ynL) and place them in the *models/* directory
-3. For a thorough feature analysis, run:
+1. Clone the repository and make sure that all the dependencies listed above are installed.
+2. Download all the resources from [here](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n) and place them in the *res/* directory
+3. Download the pre-trained models from [here](https://drive.google.com/open?id=1ss9-4LEzuKC-p1s0lLa0XVu2_ERM-ynL) and place them in the *models/* directory
+4. For a thorough feature analysis, run:
 ```bash
 python src/feature_analysis.py
 ```
-4. For training and evaluating a traditional machine learning model, run:
+5. For training and evaluating a traditional machine learning model, run:
 ```bash
 python src/ml_models.py
 ```
-5. For training and evaluating embeddings (word and/or emojis/deepmojis), run:
+6. For training and evaluating embeddings (word and/or emojis/deepmojis), run:
 ```bash
 python src/embeddings_model.py
 ```
-6. For training and evaluating a deep learning model, run:
+7. For training and evaluating a deep learning model, run:
 ```bash
 python src/dl_models.py
 ```
 
-By default, the Ghosh dataset is used, but this can be easily changed by changing the *dataset* parameter in the code (as for all other parameters).
+By default, the Ghosh dataset is used, but this can be easily replaced by changing the *dataset* parameter in the code (as for all other parameters).
 
 ## Visualizations
-* Visualize the LSTM weights:
+
+You can obtain a nice visualization of a deep layer by extracting the final weights and colour the hidden units distinctively. Running either of the two files below will produce a .html file in *plots/html_visualizations/*.
+
+#### LSTM visualization  
+
+Visualize the LSTM weights for a selected example in the test set after you have trained the model (here we use a simpler architecture with fewer hidden units and no stacked LSTMs in order to visualize anything sensible). Excitatory units (weight > 0) are coloured in a reddish colour while inhibitory units (weight < 0) in a bluish colour. Colour gradients are used to distinguish the heavy from the weak weights. Run:
 ```bash
 python src/visualize_hidden_units.py
 ```
-![LSTM visualization](../images/lstm_vis.png)
 
-* Visualize the attention weights:
+In the sample visualization given below, *doctor*, *late* and even *lame* have heavier weights and therefore are contributing more to sarcasm recognition. Historically, we know that *going to the doctor's* is a strong sarcastic topic while *late* and *lame* are sentiment-bearing expressions, confirming previous assumptions and historical results about sarcastic cues in written and spoken language. 
+
+![LSTM visualization](images/lstm_vis.png)
+
+#### Attention visualization
+
+Visualize the *attention* words over the whole (or a selection of the) test set after you have trained the model. The network is paying attention to some specific words (supposedly, those who contribute more towards a sarcasm decision being made). A reddish colour is used to emphasize attention weights while colour gradients are used to distinguish the heavy from the weak weights. Run:
 ```bash
 python src/visualize_tf_attention.py
 ```
 
-![Attention visualization](../images/attention_vis.png)
+In the sample visualization given below, strong sentiment-bearing phrases, emojis, punctuation and sometimes slang or ungrammatical/misspelt words are contributing more to sarcasm recognition, confirming previous assumptions and historical results about sarcastic cues in written and spoken language.
 
+![Attention visualization](images/attention_vis.png)
 
 ## Disclaimer
 
