@@ -1,6 +1,6 @@
 # Sarcasm-Detection
 
-Sarcasm is a form of verbal irony that is intended to express contempt or ridicule. Relying on the shared knowledge between the speaker and his audience, sarcasm requires wit to understand and wit to produce. In our daily interactions we use gestures and mimics, intonation and prosody to hint the sarcastic intent. Since we do not have access to such paralinguistic cues, detecting sarcasm in written text is a much harder task.
+Sarcasm is a form of verbal irony that is intended to express contempt or ridicule. Relying on the shared knowledge between the speaker and his audience, sarcasm requires wit to understand and wit to produce. In our daily interactions, we use gestures and mimics, intonation and prosody to hint the sarcastic intent. Since we do not have access to such paralinguistic cues, detecting sarcasm in written text is a much harder task.
 
 I investigated various methods to detect sarcasm in tweets, using both traditional machine learning and deep learning models, evaluating them on different datasets (details in [res/](res)).
 
@@ -9,7 +9,7 @@ This research project was completed in partial fulfilment of the requirements fo
 ## Overview
 * [src/](src) contains all the source code used to process, analyse, train and evaluate the datasets (as described in the resources directory) in order to investigate sarcasm detection on Twitter data
 * [res/](res) contains the raw and processed datasets as well as some useful vocabularies, lists or selections of words/emojis that proved very useful in processing the data
-* [models/](model) contains all the pretrained models contributing to the achievement of the claimed results as well as all the trained models, saved after training under the described parameters and DL architectures
+* [models/](models) contains all the pretrained models contributing to the achievement of the claimed results as well as all the trained models, saved after training under the described parameters and DL architectures
 * [plots/](plots) contains a collection of interesting plots that should be useful in analysing and sustaining the results obtained
 * [stats/](stats) contains some comparisons between preprocessing phases as well as some raw statistical results collected while training/evaluating
 
@@ -61,23 +61,23 @@ By default, the Ghosh dataset is used, but this can be easily changed by changin
 ```bash
 python src/visualize_hidden_units.py
 ```
-![LSTM visualization](../plots/html_visualizations/LSTM\ hidden\ unit\ visualization\ -\ sample\ 2.png)
+![LSTM visualization](../images/lstm_vis.png)
 
 * Visualize the attention weights:
 ```bash
 python src/visualize_tf_attention.py
 ```
 
-![Attention visualization](../plots/html_visualizations/Attention\ activations\ -\ sample\ 2.png)
+![Attention visualization](../images/attention_vis.png)
 
 
 ## Disclaimer
 
-The pupose of this project was **not** to produce the most optimally efficient code, but to draw some useful conclusions about sarcasm detection in written text (specifically, for Twitter data). However, it is not disastruously inefficient - actually, it should be fast enough for most purposes. Although the code has been verified and reviewed, I cannot guarantee that there are absolutely no bugs or faults so use the code on your own responsibility.
+The purpose of this project was **not** to produce the most optimally efficient code, but to draw some useful conclusions about sarcasm detection in written text (specifically, for Twitter data). However, it is not disastrously inefficient - actually, it should be fast enough for most purposes. Although the code has been verified and reviewed, I cannot guarantee that there are absolutely no bugs or faults so use the code on your own responsibility.
 
 ## License
 
-TThe source code and all my pretrained models are licensed under the MIT license.
+The source code and all my pretrained models are licensed under the MIT license.
 
 ## References
 
