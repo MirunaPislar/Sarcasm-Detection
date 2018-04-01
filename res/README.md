@@ -91,7 +91,6 @@ Alternatively, one can download them directly:
 ```{r, engine='bash', count_lines}
 ! wget -q http://nlp.stanford.edu/data/glove.6B.zip
 ! unzip -q -o glove.6B.zip
-! rm -f glove.6B.zip glove.6B.50d.txt glove.6B.100d.txt glove.6B.200d.txt
 ```
 
 ### Tokens and POS
