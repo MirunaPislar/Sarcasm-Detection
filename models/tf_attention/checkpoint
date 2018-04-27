@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/miruna/PycharmProjects/sarcasm_detection_v1/models/tf_attention/"
+all_model_checkpoint_paths: "/home/miruna/PycharmProjects/sarcasm_detection_v1/models/tf_attention/"
