@@ -36,24 +36,34 @@ The code included in this repository has been tested to work with Python 3.5 on 
 1. Clone the repository and make sure that all the dependencies listed above are installed.
 2. Download all the resources from [here](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n) and place them in the *res/* directory
 3. Download the pre-trained models from [here](https://drive.google.com/open?id=1ss9-4LEzuKC-p1s0lLa0XVu2_ERM-ynL) and place them in the *models/* directory
-4. For a thorough feature analysis, run:
+4. Go to *src/* directory
 ```bash
-python src/feature_analysis.py
+python cd src/
 ```
-5. For training and evaluating a traditional machine learning model, run:
+5. For a thorough feature analysis, run:
 ```bash
-python src/ml_models.py
+python feature_analysis.py
 ```
-6. For training and evaluating embeddings (word and/or emojis/deepmojis), run:
+6. For training and evaluating a traditional machine learning model, run:
 ```bash
-python src/embeddings_model.py
+python ml_models.py
 ```
-7. For training and evaluating a deep learning model, run:
+7. For training and evaluating embeddings (word and/or emojis/deepmojis), run:
 ```bash
-python src/dl_models.py
+python embeddings_model.py
+```
+8. For training and evaluating a deep learning model, run:
+```bash
+python dl_models.py
 ```
 
 By default, the Ghosh dataset is used, but this can be easily replaced by changing the *dataset* parameter in the code (as for all other parameters).
+
+## Results
+
+Here are the results obtained across the considered datasets.
+
+![Results](images/contrast_results.png)
 
 ## Visualizations
 
