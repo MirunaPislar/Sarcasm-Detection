@@ -2,16 +2,19 @@
 
 Sarcasm is a form of verbal irony that is intended to express contempt or ridicule. Relying on the shared knowledge between the speaker and his audience, sarcasm requires wit to understand and wit to produce. In our daily interactions, we use gestures and mimics, intonation and prosody to hint the sarcastic intent. Since we do not have access to such paralinguistic cues, detecting sarcasm in written text is a much harder task.
 
-I investigated various methods to detect sarcasm in tweets, using both traditional machine learning and deep learning models, evaluating them on different datasets (details in [res/](res)).
+I investigated various methods to detect sarcasm in tweets, using both traditional machine learning (SVMs and Logistic Regressors on discrete features) and deep learning models (CNNs, LSTMs, GRUs, Bi-directional LSTMs and attention-based LSTMs), evaluating them on 4 different Twitter datasets (details in [res/](res)).
 
 This research project was completed in partial fulfilment of the requirements for the degree of Bachelor of Science in Computer Science at the University of Manchester and under the careful supervision of Mr John McNaught, my tutor and mentor.
 
+The overall project achievements are explained in this video https://www.youtube.com/watch?v=ofrn3T76dHg.
+
 ## Overview
 * [src/](src) contains all the source code used to process, analyse, train and evaluate the datasets (as described in [res/](res)) in order to investigate sarcasm detection on Twitter data
-* [res/](res) contains the raw and processed datasets as well as some useful vocabularies, lists or selections of words/emojis that proved very useful in preprocessing the data
-* [models/](models) contains all the pretrained models contributing to the achievement of the claimed results as well as all the trained models, saved after training under the described parameters and DL architectures
+* [res/](res) contains both the raw and processed datasets as well as some useful vocabularies, lists or selections of words/emojis that proved very useful in pre-processing the data
+* [models/](models) contains all the pre-trained models contributing to the achievement of the claimed results as well as all the trained models, saved after training under the described parameters and DL architectures
 * [plots/](plots) contains a collection of interesting plots that should be useful in analysing and sustaining the results obtained
 * [stats/](stats) contains some comparisons between preprocessing phases as well as some raw statistical results collected while training/evaluating
+* [images/](images) contains the visualizations obtained and some pictures of the architectures or models used in the report or screencast
 
 ## Dependencies
 
@@ -36,10 +39,7 @@ The code included in this repository has been tested to work with Python 3.5 on 
 1. Clone the repository and make sure that all the dependencies listed above are installed.
 2. Download all the resources from [here](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n) and place them in the *res/* directory
 3. Download the pre-trained models from [here](https://drive.google.com/open?id=1ss9-4LEzuKC-p1s0lLa0XVu2_ERM-ynL) and place them in the *models/* directory
-4. Go to *src/* directory
-```bash
-python cd src/
-```
+4. Go to the *src/* directory
 5. For a thorough feature analysis, run:
 ```bash
 python feature_analysis.py
@@ -48,22 +48,26 @@ python feature_analysis.py
 ```bash
 python ml_models.py
 ```
-7. For training and evaluating embeddings (word and/or emojis/deepmojis), run:
+7. For training and evaluating the embeddings (word and/or emojis/deepmojis), run:
 ```bash
 python embeddings_model.py
 ```
-8. For training and evaluating a deep learning model, run:
+8. For training and evaluating various deep learning models, quickly implemented in Keras, run:
 ```bash
 python dl_models.py
 ```
+9. For training and evaluating the attention-based LSTM model implemented in TensorFlow, run:
+```bash
+python tf_attention.py
+```
 
-By default, the Ghosh dataset is used, but this can be easily replaced by changing the *dataset* parameter in the code (as for all other parameters).
+By default, the dataset collected by [Ghosh and Veale (2016)](http://www.aclweb.org/anthology/W16-0425) is used, but this can be easily replaced by changing the *dataset* parameter in the code (as for all other parameters).
 
 ## Results
 
-Here are the results obtained across the considered datasets.
+Here are the results obtained on the considered datasets.
 
-![Results](images/contrast_results.png)
+![Results](images/contrast_results_dl_model.png)
 
 ## Visualizations
 
@@ -76,9 +80,13 @@ Visualize the LSTM weights for a selected example in the test set after you have
 python src/visualize_hidden_units.py
 ```
 
-In the sample visualization given below, *doctor*, *late* and even *lame* have heavier weights and therefore are contributing more to sarcasm recognition. Historically, we know that *going to the doctor's* is a strong sarcastic topic while *late* and *lame* are sentiment-bearing expressions, confirming previous assumptions and historical results about sarcastic cues in written and spoken language. 
+In the sample visualization given below, *doctor*, *late* and even *lame* have heavier weights and therefore are contributing more to sarcasm recognition (since they receive more attention). Historically, we know that *going to the doctor* is regarded as an undesirable activity (so it is subject to strong sarcastic remarks) while *late* and *lame* are sentiment-bearing expressions, confirming previous results about sarcastic cues in written and spoken language. 
 
-![LSTM visualization](images/lstm_vis.png)
+![LSTM visualization](images/lstm_vis1.png)
+
+![LSTM visualization](images/lstm_vis3.png)
+
+Other visualizations are available in *images/*
 
 #### Attention visualization
 
@@ -87,9 +95,9 @@ Visualize the *attention* words over the whole (or a selection of the) test set 
 python src/visualize_tf_attention.py
 ```
 
-In the sample visualization given below, strong sentiment-bearing phrases, emojis, punctuation and sometimes slang or ungrammatical/misspelt words are contributing more to sarcasm recognition, confirming previous assumptions and historical results about sarcastic cues in written and spoken language.
+In the sample visualization given below, strong sentiment-bearing words, stereotypical topics, emojis, punctuation, numerals and sometimes slang or ungrammatical words are receiving more attention from the network and therefore are contributing more to sarcasm recognition.
 
-![Attention visualization](images/attention_vis.png)
+![Attention visualization](images/attention_vis0.png)
 
 ## Disclaimer
 
@@ -97,7 +105,7 @@ The purpose of this project was **not** to produce the most optimally efficient 
 
 ## License
 
-The source code and all my pretrained models are licensed under the MIT license.
+The source code and all my pre-trained models are licensed under the MIT license.
 
 ## References
 
