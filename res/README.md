@@ -1,6 +1,6 @@
 # Resources
 
-The resources provided here are only partial. The main reason why these samples have been attached is just to get you started quickly, but for a thorough analysis the whole */res* directory should be replaced with the full version available for download or simply for visualization at [this link](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n). 
+The resources provided here are only partial. The main reason why these samples have been attached is just to get you started quickly but, for a thorough analysis, the whole */res* directory should be replaced with the full version available for download (or simply for visualization) at [this link](https://drive.google.com/open?id=1AcGulyTXcrsn6hStefD3M0MNrzkxV_1n). 
 
 Below are some descriptions of each group of resources that I used in my analysis and comparisons.
 
@@ -12,9 +12,10 @@ Each dataset directory has a minimum of 8 files (all having the same names) comp
 
 * **sarcasmdetection:** collected by Mathieu Cliche and named in this rather vague way because this dataset was used to build *thesarcasmdetector* website, accessible [here](http://www.thesarcasmdetector.com/about/); other papers refer to it under the same name.
 
-* **riloff:** collected by Ellen Riloff, available for download on her [publications' page](http://www.cs.utah.edu/~riloff/publications_chron.html); this is also the project's oldest and smallest dataset so the tweets are a bit outdated and a lot of them have been removed since 2013, when the tweet IDs were initially collected.
+* **riloff:** collected by Ellen Riloff, available for download on her [publications' page](http://www.cs.utah.edu/~riloff/publications_chron.html); this is also the project's oldest and smallest dataset so the tweets are a bit outdated and a lot of them have been removed since 2013 when the tweet IDs were initially collected.
 
-* **hercig:** collected by Tomáš Hercig (previously named Ptáček) and Ivan Habernal, available on their own resourceful [page](http://liks.fav.zcu.cz/sarcasm/); this is also the project's biggest dataset.
+* **hercig:** collected by Tomáš Hercig (previously named Ptáček) and Ivan Habernal, obtained
+from their resources [page](http://liks.fav.zcu.cz/sarcasm/) under their consent. This is also the dataset on which the current state-of-the-art has been achieved.
 
 * **demo:** just a subset of Ghosh's dataset that I used for the demo.
 
@@ -33,44 +34,44 @@ Each dataset directory has a minimum of 8 files (all having the same names) comp
   </tr>
   <tr>
     <td>Ghosh</td>
-    <td>24453</td> 
-    <td>26736</td>
-    <td>1419</td>
-    <td>2323</td>
+    <td>24,453</td> 
+    <td>26,736</td>
+    <td>1,419</td>
+    <td>2,323</td>
   </tr>
   <tr>
     <td>Riloff</td>
     <td>215</td> 
-    <td>1153</td>
+    <td>1,153</td>
     <td>93</td>
     <td>495</td>
   </tr>
   <tr>
     <td>SarcasmDetector</td>
-    <td>26739</td> 
-    <td>167235</td>
-    <td>2971</td>
-    <td>18582</td>
+    <td>10,000</td> 
+    <td>10,000</td>
+    <td>2,000</td>
+    <td>2,000</td>
   </tr>
   <tr>
     <td>Ptacek</td>
-    <td>9200</td> 
-    <td>5140</td>
-    <td>2300</td>
-    <td>1285</td>
+    <td>9,200</td> 
+    <td>5,140</td>
+    <td>2,300</td>
+    <td>1,285</td>
   </tr>
 </table>
 
-
+**Note:** For some of the above datasets, only the tweet IDs have been made publicly available and not the actual text bodies. Therefore, a considerable amount of them has been deleted since the dataset creation, leaving us with subsets of the originals.
 
 **Important:** these datasets are uploaded for convenience purposes only. I do not claim any rights on them so you should use them at your own responsibility. Make sure that you respect their licence and cite the original papers and the authors who so kindly made them available to the research community.
 
 ### DeepMoji
 
-This directory is solely based on MIT's deepmoji [project](https://deepmoji.mit.edu/). I adapted the code on their [repo](https://github.com/MirunaPislar/DeepMoji) to collect some dataframe .csv files for Ghosh's train and test sets. Each row of the dataframe contains the following information:
+This directory is solely based on MIT's deepmoji [project](https://deepmoji.mit.edu/). I adapted the code on their [repo](https://github.com/MirunaPislar/DeepMoji) to collect some dataframe *.csv* files for Ghosh's train and test sets. Each row of the dataframe contains the following information:
 
 * the text of the actual tweet
-* overall confidence of the prediction made (a number between 0 and 1)
+* overall confidence in the prediction made (a number between 0 and 1)
 * indices for the top 5 predicted deepmojis (according to the [emoji/wanted_emojis.txt](emoji/wanted_emojis.txt))
 * a confidence number for each of the 5 predicted deepmoji (how suitable is a predicted deepmoji for the current tweet)
 
@@ -100,40 +101,40 @@ Two directories obtained by collecting separately the tokens and the part of spe
 * **original_train.txt** - Ghosh's original dataset, no pre-processing applied
 
 * **clean_original_train.txt** - on the *original_train.txt* perform:
-	* split around special characters
-	* all #sarca* are removed
-	* URLs are removed
-	* all user mentions are replaced with *@user*
-	* hashtags are split and a # sign is appended to every word in the split
+    * split around special characters
+    * all #sarca* are removed
+    * URLs are removed
+    * all user mentions are replaced with *@user*
+    * hashtags are split and a # sign is appended to every word in the split
 
 **Note** that any #sarcasm tags obtained after the hashtag splitting process should not be removed.
 
 ![Pipeline to gather the clean tokens](../images/pipeline_clean_tokens.png)
 
 * **filtered_clean_original_train.txt** - on the *clean_original_train.txt* perform:
-	* lower-case and lemmatize every word
-	* stopwords are removed
+    * lower-case and lemmatize every word
+    * stopwords are removed
 
 * **grammatical_train.txt** - on the *clean_original_train.txt* perform:
-	* the # sign before every hashtag is removed (not the hashtag itself)
-	* case is preserved, but words are lemmatized
-	* all hyphens at the beginning of a word are removed
-	* all contracted forms are expanded
-	* all repeating characters are removed and checked against a dictionary
-	* emojis are left as they are
-	* emoticons are translated to emojis
-	
+    * the # sign before every hashtag is removed (not the hashtag itself)
+    * case is preserved, but words are lemmatized
+    * all hyphens at the beginning of a word are removed
+    * all contracted forms are expanded
+    * all repeating characters are removed and checked against a dictionary
+    * emojis are left as they are
+    * emoticons are translated to emojis
+    
 ![Pipeline to gather the grammatical tokens](../images/pipeline_gramm_tokens.png)
 
 * **finest_grammatical.txt** - on the *clean_original_train.txt* perform:
-	* the sign # before each hashtag is removed (not the hashtag itself)
-	* everything is lower-cased, words are lemmatized
-	* all hyphens at the beginning of a word are removed
-	* all contracted forms are expanded
-	* all repeating characters are removed and checked against a dictionary
-	* emojis are translated to their descriptions
-	* emoticons are translated to their descriptions
-	* slang is corrected, abbreviations are expanded
+    * the sign # before each hashtag is removed (not the hashtag itself)
+    * everything is lower-cased, words are lemmatized
+    * all hyphens at the beginning of a word are removed
+    * all contracted forms are expanded
+    * all repeating characters are removed and checked against a dictionary
+    * emojis are translated to their descriptions
+    * emoticons are translated to their descriptions
+    * slang is corrected, abbreviations are expanded
 
 * **strict_train.txt** - the original dataset is cleared completely of hashtags, emojis, URLs and user mentions. 
 
